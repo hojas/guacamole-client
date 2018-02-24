@@ -1,0 +1,31 @@
+{
+  "name": "guacamole-client",
+  "version": "0.9.14",
+  "description": "guacamole-client is the superproject containing all Maven-based projects that make Apache Guacamole, an HTML5 web application that provides access to your desktop using remote desktop protocols.",
+  "main": "dist/guacamole.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "build": "gulp",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hojas/guacamole-client.git"
+  },
+  "keywords": [
+    "Guacamole"
+  ],
+  "author": "apache",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/hojas/guacamole-client/issues"
+  },
+  "homepage": "https://github.com/hojas/guacamole-client#readme",
+  "devDependencies": {
+    "gulp": "^3.9.1",
+    "gulp-concat": "^2.6.1",
+    "through": "^2.3.8"
+  }
+}
