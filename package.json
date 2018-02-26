@@ -1,6 +1,6 @@
 {
   "name": "guacamole-client",
-  "version": "0.9.14-new",
+  "version": "0.9.14",
   "description": "guacamole-client is the superproject containing all Maven-based projects that make Apache Guacamole, an HTML5 web application that provides access to your desktop using remote desktop protocols.",
   "main": "dist/guacamole.js",
   "directories": {
