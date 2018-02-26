@@ -5352,7 +5352,7 @@ var Guacamole = Guacamole || {};
  *    Element must be manually provided through the listenTo() function for
  *    the Guacamole.Keyboard instance to have any effect.
  */
-Guacamole.Keyboard = function Keyboard(element, notPreventDefault) {
+Guacamole.Keyboard = function Keyboard(element) {
 
     /**
      * Reference to this Guacamole.Keyboard.
@@ -6555,10 +6555,8 @@ Guacamole.Keyboard = function Keyboard(element, notPreventDefault) {
             eventLog.push(keydownEvent);
 
             // Interpret as many events as possible, prevent default if indicated
-            if (!notPreventDefault) {
-                if (interpret_events())
-                    e.preventDefault();
-            }
+            if (interpret_events())
+                e.preventDefault();
 
         }, true);
 
@@ -6583,10 +6581,8 @@ Guacamole.Keyboard = function Keyboard(element, notPreventDefault) {
             eventLog.push(keypressEvent);
 
             // Interpret as many events as possible, prevent default if indicated
-            if (!notPreventDefault) {
-                if (interpret_events())
-                    e.preventDefault();
-            }
+            if (interpret_events())
+                e.preventDefault();
 
         }, true);
 
@@ -6599,9 +6595,7 @@ Guacamole.Keyboard = function Keyboard(element, notPreventDefault) {
             // Ignore events which have already been handled
             if (!markEvent(e)) return;
 
-            if (!notPreventDefault) {
-                e.preventDefault();
-            }
+            e.preventDefault();
 
             var keyCode;
             if (window.event) keyCode = window.event.keyCode;
