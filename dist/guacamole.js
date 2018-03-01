@@ -967,20 +967,16 @@ Guacamole.RawAudioRecorder = function RawAudioRecorder(stream, mimetype) {
      */
     var context = Guacamole.AudioContextFactory.getAudioContext();
 
-    // Some browsers do not implement navigator.mediaDevices - this
-    // shims in this functionality to ensure code compatibility.
-    if (!navigator.mediaDevices)
-        navigator.mediaDevices = {};
-
-    // Browsers that either do not implement navigator.mediaDevices
-    // at all or do not implement it completely need the getUserMedia
-    // method defined.  This shims in this function by detecting
-    // one of the supported legacy methods.
-    if (!navigator.mediaDevices.getUserMedia)
-        navigator.mediaDevices.getUserMedia = (navigator.getUserMedia
-                || navigator.webkitGetUserMedia
-                || navigator.mozGetUserMedia
-                || navigator.msGetUserMedia).bind(navigator);
+    /**
+     * A function which directly invokes the browser's implementation of
+     * navigator.getUserMedia() with all provided parameters.
+     *
+     * @type Function
+     */
+    var getUserMedia = (navigator.getUserMedia
+            || navigator.webkitGetUserMedia
+            || navigator.mozGetUserMedia
+            || navigator.msGetUserMedia).bind(navigator);
 
     /**
      * Guacamole.ArrayBufferWriter wrapped around the audio output stream
@@ -1209,7 +1205,7 @@ Guacamole.RawAudioRecorder = function RawAudioRecorder(stream, mimetype) {
     var beginAudioCapture = function beginAudioCapture() {
 
         // Attempt to retrieve an audio input stream from the browser
-        navigator.mediaDevices.getUserMedia({ 'audio' : true }, function streamReceived(stream) {
+        getUserMedia({ 'audio' : true }, function streamReceived(stream) {
 
             // Create processing node which receives appropriately-sized audio buffers
             processor = context.createScriptProcessor(BUFFER_SIZE, format.channels, format.channels);
@@ -2080,6 +2076,31 @@ Guacamole.Client = function(tunnel) {
 
         // Send message
         tunnel.sendMessage("mouse", Math.floor(mouseState.x), Math.floor(mouseState.y), buttonMask);
+    };
+
+    /**
+     * Sets the clipboard of the remote client to the given text data.
+     *
+     * @deprecated Use createClipboardStream() instead. 
+     * @param {String} data The data to send as the clipboard contents.
+     */
+    this.setClipboard = function(data) {
+
+        // Do not send requests if not connected
+        if (!isConnected())
+            return;
+
+        // Open stream
+        var stream = guac_client.createClipboardStream("text/plain");
+        var writer = new Guacamole.StringWriter(stream);
+
+        // Send text chunks
+        for (var i=0; i<data.length; i += 4096)
+            writer.sendText(data.substring(i, i+4096));
+
+        // Close stream
+        writer.sendEnd();
+
     };
 
     /**
@@ -4950,135 +4971,6 @@ Guacamole.Display.VisibleLayer.__next_id = 0;
 var Guacamole = Guacamole || {};
 
 /**
- * A hidden input field which attempts to keep itself focused at all times,
- * except when another input field has been intentionally focused, whether
- * programatically or by the user. The actual underlying input field, returned
- * by getElement(), may be used as a reliable source of keyboard-related events,
- * particularly composition and input events which may require a focused input
- * field to be dispatched at all.
- *
- * @constructor
- */
-Guacamole.InputSink = function InputSink() {
-
-    /**
-     * Reference to this instance of Guacamole.InputSink.
-     *
-     * @private
-     * @type {Guacamole.InputSink}
-     */
-    var sink = this;
-
-    /**
-     * The underlying input field, styled to be invisible.
-     *
-     * @private
-     * @type {Element}
-     */
-    var field = document.createElement('textarea');
-    field.style.position   = 'fixed';
-    field.style.outline    = 'none';
-    field.style.border     = 'none';
-    field.style.margin     = '0';
-    field.style.padding    = '0';
-    field.style.height     = '0';
-    field.style.width      = '0';
-    field.style.left       = '0';
-    field.style.bottom     = '0';
-    field.style.resize     = 'none';
-    field.style.background = 'transparent';
-    field.style.color      = 'transparent';
-
-    // Keep field clear when modified via normal keypresses
-    field.addEventListener("keypress", function clearKeypress(e) {
-        field.value = '';
-    }, false);
-
-    // Keep field clear when modofied via composition events
-    field.addEventListener("compositionend", function clearCompletedComposition(e) {
-        if (e.data)
-            field.value = '';
-    }, false);
-
-    // Keep field clear when modofied via input events
-    field.addEventListener("input", function clearCompletedInput(e) {
-        if (e.data && !e.isComposing)
-            field.value = '';
-    }, false);
-
-    // Whenever focus is gained, automatically click to ensure cursor is
-    // actually placed within the field (the field may simply be highlighted or
-    // outlined otherwise)
-    field.addEventListener("focus", function focusReceived() {
-        window.setTimeout(function deferRefocus() {
-            field.click();
-            field.select();
-        }, 0);
-    }, true);
-
-    /**
-     * Attempts to focus the underlying input field. The focus attempt occurs
-     * asynchronously, and may silently fail depending on browser restrictions.
-     */
-    this.focus = function focus() {
-        window.setTimeout(function deferRefocus() {
-            field.focus(); // Focus must be deferred to work reliably across browsers
-        }, 0);
-    };
-
-    /**
-     * Returns the underlying input field. This input field MUST be manually
-     * added to the DOM for the Guacamole.InputSink to have any effect.
-     *
-     * @returns {Element}
-     */
-    this.getElement = function getElement() {
-        return field;
-    };
-
-    // Automatically refocus input sink if part of DOM
-    document.addEventListener("keydown", function refocusSink(e) {
-
-        // Do not refocus if focus is on an input field
-        var focused = document.activeElement;
-        if (focused && focused !== document.body) {
-
-            // Only consider focused input fields which are actually visible
-            var rect = focused.getBoundingClientRect();
-            if (rect.left + rect.width > 0 && rect.top + rect.height > 0)
-                return;
-
-        }
-
-        // Refocus input sink instead of handling click
-        sink.focus();
-
-    }, true);
-
-};
-
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
-var Guacamole = Guacamole || {};
-
-/**
  * An input stream abstraction used by the Guacamole client to facilitate
  * transfer of files or other binary data.
  * 
@@ -5345,14 +5237,11 @@ var Guacamole = Guacamole || {};
  * Provides cross-browser and cross-keyboard keyboard for a specific element.
  * Browser and keyboard layout variation is abstracted away, providing events
  * which represent keys as their corresponding X11 keysym.
- *
+ * 
  * @constructor
- * @param {Element|Document} [element]
- *    The Element to use to provide keyboard events. If omitted, at least one
- *    Element must be manually provided through the listenTo() function for
- *    the Guacamole.Keyboard instance to have any effect.
+ * @param {Element} element The Element to use to provide keyboard events.
  */
-Guacamole.Keyboard = function Keyboard(element) {
+Guacamole.Keyboard = function(element) {
 
     /**
      * Reference to this Guacamole.Keyboard.
@@ -5361,28 +5250,9 @@ Guacamole.Keyboard = function Keyboard(element) {
     var guac_keyboard = this;
 
     /**
-     * An integer value which uniquely identifies this Guacamole.Keyboard
-     * instance with respect to other Guacamole.Keyboard instances.
-     *
-     * @private
-     * @type {Number}
-     */
-    var guacKeyboardID = Guacamole.Keyboard._nextID++;
-
-    /**
-     * The name of the property which is added to event objects via markEvent()
-     * to note that they have already been handled by this Guacamole.Keyboard.
-     *
-     * @private
-     * @constant
-     * @type {String}
-     */
-    var EVENT_MARKER = '_GUAC_KEYBOARD_HANDLED_BY_' + guacKeyboardID;
-
-    /**
      * Fired whenever the user presses a key with the element associated
      * with this Guacamole.Keyboard in focus.
-     *
+     * 
      * @event
      * @param {Number} keysym The keysym of the key being pressed.
      * @return {Boolean} true if the key event should be allowed through to the
@@ -5393,63 +5263,11 @@ Guacamole.Keyboard = function Keyboard(element) {
     /**
      * Fired whenever the user releases a key with the element associated
      * with this Guacamole.Keyboard in focus.
-     *
+     * 
      * @event
      * @param {Number} keysym The keysym of the key being released.
      */
     this.onkeyup = null;
-
-    /**
-     * Set of known platform-specific or browser-specific quirks which must be
-     * accounted for to properly interpret key events, even if the only way to
-     * reliably detect that quirk is to platform/browser-sniff.
-     *
-     * @private
-     * @type {Object.<String, Boolean>}
-     */
-    var quirks = {
-
-        /**
-         * Whether keyup events are universally unreliable.
-         *
-         * @type {Boolean}
-         */
-        keyupUnreliable: false,
-
-        /**
-         * Whether the Alt key is actually a modifier for typable keys and is
-         * thus never used for keyboard shortcuts.
-         *
-         * @type {Boolean}
-         */
-        altIsTypableOnly: false,
-
-        /**
-         * Whether we can rely on receiving a keyup event for the Caps Lock
-         * key.
-         *
-         * @type {Boolean}
-         */
-        capsLockKeyupUnreliable: false
-
-    };
-
-    // Set quirk flags depending on platform/browser, if such information is
-    // available
-    if (navigator && navigator.platform) {
-
-        // All keyup events are unreliable on iOS (sadly)
-        if (navigator.platform.match(/ipad|iphone|ipod/i))
-            quirks.keyupUnreliable = true;
-
-        // The Alt key on Mac is never used for keyboard shortcuts, and the
-        // Caps Lock key never dispatches keyup events
-        else if (navigator.platform.match(/^mac/i)) {
-            quirks.altIsTypableOnly = true;
-            quirks.capsLockKeyupUnreliable = true;
-        }
-
-    }
 
     /**
      * A key event having a corresponding timestamp. This event is non-specific.
@@ -5553,7 +5371,7 @@ Guacamole.Keyboard = function Keyboard(element) {
         /**
          * The standard name of the key pressed, as defined at:
          * http://www.w3.org/TR/DOM-Level-3-Events/#events-KeyboardEvent
-         *
+         * 
          * @type {String}
          */
         this.key = key;
@@ -5562,7 +5380,7 @@ Guacamole.Keyboard = function Keyboard(element) {
          * The location on the keyboard corresponding to the key pressed, as
          * defined at:
          * http://www.w3.org/TR/DOM-Level-3-Events/#events-KeyboardEvent
-         *
+         * 
          * @type {Number}
          */
         this.location = location;
@@ -5570,14 +5388,6 @@ Guacamole.Keyboard = function Keyboard(element) {
         // If key is known from keyCode or DOM3 alone, use that
         this.keysym =  keysym_from_key_identifier(key, location)
                     || keysym_from_keycode(keyCode, location);
-
-        /**
-         * Whether the keyup following this keydown event is known to be
-         * reliable. If false, we cannot rely on the keyup event to occur.
-         *
-         * @type {Boolean}
-         */
-        this.keyupReliable = !quirks.keyupUnreliable;
 
         // DOM3 and keyCode are reliable sources if the corresponding key is
         // not a printable key
@@ -5588,17 +5398,9 @@ Guacamole.Keyboard = function Keyboard(element) {
         if (!this.keysym && key_identifier_sane(keyCode, keyIdentifier))
             this.keysym = keysym_from_key_identifier(keyIdentifier, location, guac_keyboard.modifiers.shift);
 
-        // If a key is pressed while meta is held down, the keyup will
-        // never be sent in Chrome (bug #108404)
-        if (guac_keyboard.modifiers.meta && this.keysym !== 0xFFE7 && this.keysym !== 0xFFE8)
-            this.keyupReliable = false;
-
-        // We cannot rely on receiving keyup for Caps Lock on certain platforms
-        else if (this.keysym === 0xFFE5 && quirks.capsLockKeyupUnreliable)
-            this.keyupReliable = false;
-
         // Determine whether default action for Alt+combinations must be prevented
-        var prevent_alt = !guac_keyboard.modifiers.ctrl && !quirks.altIsTypableOnly;
+        var prevent_alt =  !guac_keyboard.modifiers.ctrl
+                        && !(navigator && navigator.platform && navigator.platform.match(/^mac/i));
 
         // Determine whether default action for Ctrl+combinations must be prevented
         var prevent_ctrl = !guac_keyboard.modifiers.alt;
@@ -5693,7 +5495,7 @@ Guacamole.Keyboard = function Keyboard(element) {
         /**
          * The standard name of the key released, as defined at:
          * http://www.w3.org/TR/DOM-Level-3-Events/#events-KeyboardEvent
-         *
+         * 
          * @type {String}
          */
         this.key = key;
@@ -5702,7 +5504,7 @@ Guacamole.Keyboard = function Keyboard(element) {
          * The location on the keyboard corresponding to the key released, as
          * defined at:
          * http://www.w3.org/TR/DOM-Level-3-Events/#events-KeyboardEvent
-         *
+         * 
          * @type {Number}
          */
         this.location = location;
@@ -5818,6 +5620,22 @@ Guacamole.Keyboard = function Keyboard(element) {
         "Compose": [0xFF20],
         "Control": [0xFFE3, 0xFFE3, 0xFFE4],
         "ContextMenu": [0xFF67],
+        "DeadGrave": [0xFE50],
+        "DeadAcute": [0xFE51],
+        "DeadCircumflex": [0xFE52],
+        "DeadTilde": [0xFE53],
+        "DeadMacron": [0xFE54],
+        "DeadBreve": [0xFE55],
+        "DeadAboveDot": [0xFE56],
+        "DeadUmlaut": [0xFE57],
+        "DeadAboveRing": [0xFE58],
+        "DeadDoubleacute": [0xFE59],
+        "DeadCaron": [0xFE5A],
+        "DeadCedilla": [0xFE5B],
+        "DeadOgonek": [0xFE5C],
+        "DeadIota": [0xFE5D],
+        "DeadVoicedSound": [0xFE5E],
+        "DeadSemivoicedSound": [0xFE5F],
         "Delete": [0xFFFF],
         "Down": [0xFF54],
         "End": [0xFF57],
@@ -5894,11 +5712,6 @@ Guacamole.Keyboard = function Keyboard(element) {
         "SingleCandidate": [0xFF3C],
         "Super": [0xFFEB, 0xFFEB, 0xFFEC],
         "Tab": [0xFF09],
-        "UIKeyInputDownArrow": [0xFF54],
-        "UIKeyInputEscape": [0xFF1B],
-        "UIKeyInputLeftArrow": [0xFF51],
-        "UIKeyInputRightArrow": [0xFF53],
-        "UIKeyInputUpArrow": [0xFF52],
         "Up": [0xFF52],
         "Undo": [0xFF65],
         "Win": [0xFFEB],
@@ -5914,10 +5727,10 @@ Guacamole.Keyboard = function Keyboard(element) {
         0xFE03: true, // ISO Level 3 Shift (AltGr)
         0xFFE1: true, // Left shift
         0xFFE2: true, // Right shift
-        0xFFE3: true, // Left ctrl
-        0xFFE4: true, // Right ctrl
-        0xFFE7: true, // Left meta
-        0xFFE8: true, // Right meta
+        0xFFE3: true, // Left ctrl 
+        0xFFE4: true, // Right ctrl 
+        0xFFE7: true, // Left meta 
+        0xFFE8: true, // Right meta 
         0xFFE9: true, // Left alt
         0xFFEA: true, // Right alt
         0xFFEB: true, // Left hyper
@@ -5928,11 +5741,11 @@ Guacamole.Keyboard = function Keyboard(element) {
      * All modifiers and their states.
      */
     this.modifiers = new Guacamole.Keyboard.ModifierState();
-
+        
     /**
      * The state of every key, indexed by keysym. If a particular key is
      * pressed, the value of pressed for that keysym will be true. If a key
-     * is not currently pressed, it will not be defined.
+     * is not currently pressed, it will not be defined. 
      */
     this.pressed = {};
 
@@ -5972,7 +5785,7 @@ Guacamole.Keyboard = function Keyboard(element) {
      * Given an array of keysyms indexed by location, returns the keysym
      * for the given location, or the keysym for the standard location if
      * undefined.
-     *
+     * 
      * @private
      * @param {Number[]} keysyms
      *     An array of keysyms, where the index of the keysym in the array is
@@ -6016,7 +5829,7 @@ Guacamole.Keyboard = function Keyboard(element) {
 
         var typedCharacter;
 
-        // If identifier is U+xxxx, decode Unicode character
+        // If identifier is U+xxxx, decode Unicode character 
         var unicodePrefixLocation = identifier.indexOf("U+");
         if (unicodePrefixLocation >= 0) {
             var hex = identifier.substring(unicodePrefixLocation+2);
@@ -6118,7 +5931,7 @@ Guacamole.Keyboard = function Keyboard(element) {
      * repeat for the pressed key will start after a delay if that key is
      * not a modifier. The return value of this function depends on the
      * return value of the keydown event handler, if any.
-     *
+     * 
      * @param {Number} keysym The keysym of the key to press.
      * @return {Boolean} true if event should NOT be canceled, false otherwise.
      */
@@ -6162,14 +5975,14 @@ Guacamole.Keyboard = function Keyboard(element) {
 
     /**
      * Marks a key as released, firing the keyup event if registered.
-     *
+     * 
      * @param {Number} keysym The keysym of the key to release.
      */
     this.release = function(keysym) {
 
         // Only release if pressed
         if (guac_keyboard.pressed[keysym]) {
-
+            
             // Mark key as released
             delete guac_keyboard.pressed[keysym];
 
@@ -6180,30 +5993,6 @@ Guacamole.Keyboard = function Keyboard(element) {
             // Send key event
             if (keysym !== null && guac_keyboard.onkeyup)
                 guac_keyboard.onkeyup(keysym);
-
-        }
-
-    };
-
-    /**
-     * Presses and releases the keys necessary to type the given string of
-     * text.
-     *
-     * @param {String} str
-     *     The string to type.
-     */
-    this.type = function type(str) {
-
-        // Press/release the key corresponding to each character in the string
-        for (var i = 0; i < str.length; i++) {
-
-            // Determine keysym of current character
-            var codepoint = str.codePointAt ? str.codePointAt(i) : str.charCodeAt(i);
-            var keysym = keysym_from_charcode(codepoint);
-
-            // Press and release key for current character
-            guac_keyboard.press(keysym);
-            guac_keyboard.release(keysym);
 
         }
 
@@ -6225,37 +6014,6 @@ Guacamole.Keyboard = function Keyboard(element) {
     };
 
     /**
-     * Given the remote and local state of a particular key, resynchronizes the
-     * remote state of that key with the local state through pressing or
-     * releasing keysyms.
-     *
-     * @private
-     * @param {Boolean} remoteState
-     *     Whether the key is currently pressed remotely.
-     *
-     * @param {Boolean} localState
-     *     Whether the key is currently pressed remotely locally. If the state
-     *     of the key is not known, this may be undefined.
-     *
-     * @param {Number[]} keysyms
-     *     The keysyms which represent the key being updated.
-     */
-    var updateModifierState = function updateModifierState(remoteState, localState, keysyms) {
-
-        // Release all related keys if modifier is implicitly released
-        if (remoteState && localState === false) {
-            for (var i = 0; i < keysyms.length; i++) {
-                guac_keyboard.release(keysyms[i]);
-            }
-        }
-
-        // Press if modifier is implicitly pressed
-        else if (!remoteState && localState)
-            guac_keyboard.press(keysyms[0]);
-
-    };
-
-    /**
      * Given a keyboard event, updates the local modifier state and remote
      * key state based on the modifier flags within the event. This function
      * pays no attention to keycodes.
@@ -6264,41 +6022,41 @@ Guacamole.Keyboard = function Keyboard(element) {
      * @param {KeyboardEvent} e
      *     The keyboard event containing the flags to update.
      */
-    var syncModifierStates = function syncModifierStates(e) {
+    var update_modifier_state = function update_modifier_state(e) {
 
         // Get state
         var state = Guacamole.Keyboard.ModifierState.fromKeyboardEvent(e);
 
-        // Resync state of alt
-        updateModifierState(guac_keyboard.modifiers.alt, state.alt, [
-            0xFFE9, // Left alt
-            0xFFEA, // Right alt
-            0xFE03  // AltGr
-        ]);
+        // Release alt if implicitly released
+        if (guac_keyboard.modifiers.alt && state.alt === false) {
+            guac_keyboard.release(0xFFE9); // Left alt
+            guac_keyboard.release(0xFFEA); // Right alt
+            guac_keyboard.release(0xFE03); // AltGr
+        }
 
-        // Resync state of shift
-        updateModifierState(guac_keyboard.modifiers.shift, state.shift, [
-            0xFFE1, // Left shift
-            0xFFE2  // Right shift
-        ]);
+        // Release shift if implicitly released
+        if (guac_keyboard.modifiers.shift && state.shift === false) {
+            guac_keyboard.release(0xFFE1); // Left shift
+            guac_keyboard.release(0xFFE2); // Right shift
+        }
 
-        // Resync state of ctrl
-        updateModifierState(guac_keyboard.modifiers.ctrl, state.ctrl, [
-            0xFFE3, // Left ctrl
-            0xFFE4  // Right ctrl
-        ]);
+        // Release ctrl if implicitly released
+        if (guac_keyboard.modifiers.ctrl && state.ctrl === false) {
+            guac_keyboard.release(0xFFE3); // Left ctrl 
+            guac_keyboard.release(0xFFE4); // Right ctrl 
+        }
 
-        // Resync state of meta
-        updateModifierState(guac_keyboard.modifiers.meta, state.meta, [
-            0xFFE7, // Left meta
-            0xFFE8  // Right meta
-        ]);
+        // Release meta if implicitly released
+        if (guac_keyboard.modifiers.meta && state.meta === false) {
+            guac_keyboard.release(0xFFE7); // Left meta 
+            guac_keyboard.release(0xFFE8); // Right meta 
+        }
 
-        // Resync state of hyper
-        updateModifierState(guac_keyboard.modifiers.hyper, state.hyper, [
-            0xFFEB, // Left hyper
-            0xFFEC  // Right hyper
-        ]);
+        // Release hyper if implicitly released
+        if (guac_keyboard.modifiers.hyper && state.hyper === false) {
+            guac_keyboard.release(0xFFEB); // Left hyper
+            guac_keyboard.release(0xFFEC); // Right hyper
+        }
 
         // Update state
         guac_keyboard.modifiers = state;
@@ -6309,7 +6067,7 @@ Guacamole.Keyboard = function Keyboard(element) {
      * Reads through the event log, removing events from the head of the log
      * when the corresponding true key presses are known (or as known as they
      * can be).
-     *
+     * 
      * @private
      * @return {Boolean} Whether the default action of the latest event should
      *                   be prevented.
@@ -6355,8 +6113,8 @@ Guacamole.Keyboard = function Keyboard(element) {
 
         // Release Ctrl+Alt if the keysym is printable
         if (keysym <= 0xFF || (keysym & 0xFF000000) === 0x01000000) {
-            guac_keyboard.release(0xFFE3); // Left ctrl
-            guac_keyboard.release(0xFFE4); // Right ctrl
+            guac_keyboard.release(0xFFE3); // Left ctrl 
+            guac_keyboard.release(0xFFE4); // Right ctrl 
             guac_keyboard.release(0xFFE9); // Left alt
             guac_keyboard.release(0xFFEA); // Right alt
         }
@@ -6368,7 +6126,7 @@ Guacamole.Keyboard = function Keyboard(element) {
      * and returning that event. If no events can be interpreted, due to a
      * total lack of events or the need for more events, null is returned. Any
      * interpreted events are automatically removed from the log.
-     *
+     * 
      * @private
      * @return {KeyEvent}
      *     The first key event in the log, if it can be interpreted, or null
@@ -6417,9 +6175,9 @@ Guacamole.Keyboard = function Keyboard(element) {
                     var defaultPrevented = !guac_keyboard.press(keysym);
                     recentKeysym[first.keyCode] = keysym;
 
-                    // Release the key now if we cannot rely on the associated
-                    // keyup event
-                    if (!first.keyupReliable)
+                    // If a key is pressed while meta is held down, the keyup will
+                    // never be sent in Chrome, so send it now. (bug #108404)
+                    if (guac_keyboard.modifiers.meta && keysym !== 0xFFE7 && keysym !== 0xFFE8)
                         guac_keyboard.release(keysym);
 
                     // Record whether default was prevented
@@ -6435,7 +6193,7 @@ Guacamole.Keyboard = function Keyboard(element) {
         } // end if keydown
 
         // Keyup event
-        else if (first instanceof KeyupEvent && !quirks.keyupUnreliable) {
+        else if (first instanceof KeyupEvent) {
 
             // Release specific key if known
             var keysym = first.keysym;
@@ -6454,8 +6212,7 @@ Guacamole.Keyboard = function Keyboard(element) {
 
         } // end if keyup
 
-        // Ignore any other type of event (keypress by itself is invalid, and
-        // unreliable keyup events should simply be dumped)
+        // Ignore any other type of event (keypress by itself is invalid)
         else
             return eventLog.shift();
 
@@ -6493,220 +6250,105 @@ Guacamole.Keyboard = function Keyboard(element) {
 
     };
 
-    /**
-     * Attempts to mark the given Event as having been handled by this
-     * Guacamole.Keyboard. If the Event has already been marked as handled,
-     * false is returned.
-     *
-     * @param {Event} e
-     *     The Event to mark.
-     *
-     * @returns {Boolean}
-     *     true if the given Event was successfully marked, false if the given
-     *     Event was already marked.
-     */
-    var markEvent = function markEvent(e) {
+    // When key pressed
+    element.addEventListener("keydown", function(e) {
 
-        // Fail if event is already marked
-        if (e[EVENT_MARKER])
-            return false;
+        // Only intercept if handler set
+        if (!guac_keyboard.onkeydown) return;
 
-        // Mark event otherwise
-        e[EVENT_MARKER] = true;
-        return true;
+        var keyCode;
+        if (window.event) keyCode = window.event.keyCode;
+        else if (e.which) keyCode = e.which;
 
-    };
+        // Fix modifier states
+        update_modifier_state(e);
 
-    /**
-     * Attaches event listeners to the given Element, automatically translating
-     * received key, input, and composition events into simple keydown/keyup
-     * events signalled through this Guacamole.Keyboard's onkeydown and
-     * onkeyup handlers.
-     *
-     * @param {Element|Document} element
-     *     The Element to attach event listeners to for the sake of handling
-     *     key or input events.
-     */
-    this.listenTo = function listenTo(element) {
+        // Ignore (but do not prevent) the "composition" keycode sent by some
+        // browsers when an IME is in use (see: http://lists.w3.org/Archives/Public/www-dom/2010JulSep/att-0182/keyCode-spec.html)
+        if (keyCode === 229)
+            return;
 
-        // When key pressed
-        element.addEventListener("keydown", function(e) {
+        // Log event
+        var keydownEvent = new KeydownEvent(keyCode, e.keyIdentifier, e.key, getEventLocation(e));
+        eventLog.push(keydownEvent);
 
-            // Only intercept if handler set
-            if (!guac_keyboard.onkeydown) return;
-
-            // Ignore events which have already been handled
-            if (!markEvent(e)) return;
-
-            var keyCode;
-            if (window.event) keyCode = window.event.keyCode;
-            else if (e.which) keyCode = e.which;
-
-            // Fix modifier states
-            syncModifierStates(e);
-
-            // Ignore (but do not prevent) the "composition" keycode sent by some
-            // browsers when an IME is in use (see: http://lists.w3.org/Archives/Public/www-dom/2010JulSep/att-0182/keyCode-spec.html)
-            if (keyCode === 229)
-                return;
-
-            // Log event
-            var keydownEvent = new KeydownEvent(keyCode, e.keyIdentifier, e.key, getEventLocation(e));
-            eventLog.push(keydownEvent);
-
-            // Interpret as many events as possible, prevent default if indicated
-            if (interpret_events())
-                e.preventDefault();
-
-        }, true);
-
-        // When key pressed
-        element.addEventListener("keypress", function(e) {
-
-            // Only intercept if handler set
-            if (!guac_keyboard.onkeydown && !guac_keyboard.onkeyup) return;
-
-            // Ignore events which have already been handled
-            if (!markEvent(e)) return;
-
-            var charCode;
-            if (window.event) charCode = window.event.keyCode;
-            else if (e.which) charCode = e.which;
-
-            // Fix modifier states
-            syncModifierStates(e);
-
-            // Log event
-            var keypressEvent = new KeypressEvent(charCode);
-            eventLog.push(keypressEvent);
-
-            // Interpret as many events as possible, prevent default if indicated
-            if (interpret_events())
-                e.preventDefault();
-
-        }, true);
-
-        // When key released
-        element.addEventListener("keyup", function(e) {
-
-            // Only intercept if handler set
-            if (!guac_keyboard.onkeyup) return;
-
-            // Ignore events which have already been handled
-            if (!markEvent(e)) return;
-
+        // Interpret as many events as possible, prevent default if indicated
+        if (interpret_events())
             e.preventDefault();
 
-            var keyCode;
-            if (window.event) keyCode = window.event.keyCode;
-            else if (e.which) keyCode = e.which;
+    }, true);
 
-            // Fix modifier states
-            syncModifierStates(e);
+    // When key pressed
+    element.addEventListener("keypress", function(e) {
 
-            // Log event, call for interpretation
-            var keyupEvent = new KeyupEvent(keyCode, e.keyIdentifier, e.key, getEventLocation(e));
-            eventLog.push(keyupEvent);
-            interpret_events();
+        // Only intercept if handler set
+        if (!guac_keyboard.onkeydown && !guac_keyboard.onkeyup) return;
 
-        }, true);
+        var charCode;
+        if (window.event) charCode = window.event.keyCode;
+        else if (e.which) charCode = e.which;
 
-        /**
-         * Handles the given "input" event, typing the data within the input text.
-         * If the event is complete (text is provided), handling of "compositionend"
-         * events is suspended, as such events may conflict with input events.
-         *
-         * @private
-         * @param {InputEvent} e
-         *     The "input" event to handle.
-         */
-        var handleInput = function handleInput(e) {
+        // Fix modifier states
+        update_modifier_state(e);
 
-            // Only intercept if handler set
-            if (!guac_keyboard.onkeydown && !guac_keyboard.onkeyup) return;
+        // Log event
+        var keypressEvent = new KeypressEvent(charCode);
+        eventLog.push(keypressEvent);
 
-            // Ignore events which have already been handled
-            if (!markEvent(e)) return;
+        // Interpret as many events as possible, prevent default if indicated
+        if (interpret_events())
+            e.preventDefault();
 
-            // Type all content written
-            if (e.data && !e.isComposing) {
-                element.removeEventListener("compositionend", handleComposition, false);
-                guac_keyboard.type(e.data);
-            }
+    }, true);
 
-        };
+    // When key released
+    element.addEventListener("keyup", function(e) {
 
-        /**
-         * Handles the given "compositionend" event, typing the data within the
-         * composed text. If the event is complete (composed text is provided),
-         * handling of "input" events is suspended, as such events may conflict
-         * with composition events.
-         *
-         * @private
-         * @param {CompositionEvent} e
-         *     The "compositionend" event to handle.
-         */
-        var handleComposition = function handleComposition(e) {
+        // Only intercept if handler set
+        if (!guac_keyboard.onkeyup) return;
 
-            // Only intercept if handler set
-            if (!guac_keyboard.onkeydown && !guac_keyboard.onkeyup) return;
+        e.preventDefault();
 
-            // Ignore events which have already been handled
-            if (!markEvent(e)) return;
+        var keyCode;
+        if (window.event) keyCode = window.event.keyCode;
+        else if (e.which) keyCode = e.which;
+        
+        // Fix modifier states
+        update_modifier_state(e);
 
-            // Type all content written
-            if (e.data) {
-                element.removeEventListener("input", handleInput, false);
-                guac_keyboard.type(e.data);
-            }
+        // Log event, call for interpretation
+        var keyupEvent = new KeyupEvent(keyCode, e.keyIdentifier, e.key, getEventLocation(e));
+        eventLog.push(keyupEvent);
+        interpret_events();
 
-        };
-
-        // Automatically type text entered into the wrapped field
-        element.addEventListener("input", handleInput, false);
-        element.addEventListener("compositionend", handleComposition, false);
-
-    };
-
-    // Listen to given element, if any
-    if (element)
-        guac_keyboard.listenTo(element);
+    }, true);
 
 };
-
-/**
- * The unique numerical identifier to assign to the next Guacamole.Keyboard
- * instance.
- *
- * @private
- * @type {Number}
- */
-Guacamole.Keyboard._nextID = 0;
 
 /**
  * The state of all supported keyboard modifiers.
  * @constructor
  */
 Guacamole.Keyboard.ModifierState = function() {
-
+    
     /**
      * Whether shift is currently pressed.
      * @type {Boolean}
      */
     this.shift = false;
-
+    
     /**
      * Whether ctrl is currently pressed.
      * @type {Boolean}
      */
     this.ctrl = false;
-
+    
     /**
      * Whether alt is currently pressed.
      * @type {Boolean}
      */
     this.alt = false;
-
+    
     /**
      * Whether meta (apple key) is currently pressed.
      * @type {Boolean}
@@ -6718,18 +6360,18 @@ Guacamole.Keyboard.ModifierState = function() {
      * @type {Boolean}
      */
     this.hyper = false;
-
+    
 };
 
 /**
  * Returns the modifier state applicable to the keyboard event given.
- *
+ * 
  * @param {KeyboardEvent} e The keyboard event to read.
  * @returns {Guacamole.Keyboard.ModifierState} The current state of keyboard
  *                                             modifiers.
  */
 Guacamole.Keyboard.ModifierState.fromKeyboardEvent = function(e) {
-
+    
     var state = new Guacamole.Keyboard.ModifierState();
 
     // Assign states from old flags
@@ -6747,7 +6389,7 @@ Guacamole.Keyboard.ModifierState.fromKeyboardEvent = function(e) {
     }
 
     return state;
-
+    
 };
 
 /*
@@ -10435,17 +10077,6 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
     var KEYFRAME_TIME_INTERVAL = 5000;
 
     /**
-     * The maximum amount of time to spend in any particular seek operation
-     * before returning control to the main thread, in milliseconds. Seek
-     * operations exceeding this amount of time will proceed asynchronously.
-     *
-     * @private
-     * @constant
-     * @type {Number}
-     */
-    var MAXIMUM_SEEK_TIME = 5;
-
-    /**
      * All frames parsed from the provided tunnel.
      *
      * @private
@@ -10526,14 +10157,14 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
     var startRealTimestamp = null;
 
     /**
-     * The ID of the timeout which will continue the in-progress seek
-     * operation. If no seek operation is in progress, the ID stored here (if
-     * any) will not be valid.
+     * The ID of the timeout which will play the next frame, if playback is in
+     * progress. If playback is not in progress, the ID stored here (if any)
+     * will not be valid.
      *
      * @private
      * @type {Number}
      */
-    var seekTimeout = null;
+    var playbackTimeout = null;
 
     // Start playback client connected
     playbackClient.connect();
@@ -10679,96 +10310,50 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
 
     /**
      * Moves the playback position to the given frame, resetting the state of
-     * the playback client and replaying frames as necessary. The seek
-     * operation will proceed asynchronously. If a seek operation is already in
-     * progress, that seek is first aborted. The progress of the seek operation
-     * can be observed through the onseek handler and the provided callback.
+     * the playback client and replaying frames as necessary.
      *
      * @private
      * @param {Number} index
      *     The index of the frame which should become the new playback
      *     position.
-     *
-     * @param {function} callback
-     *     The callback to invoke once the seek operation has completed.
-     *
-     * @param {Number} [delay=0]
-     *     The number of milliseconds that the seek operation should be
-     *     scheduled to take.
      */
-    var seekToFrame = function seekToFrame(index, callback, delay) {
+    var seekToFrame = function seekToFrame(index) {
 
-        // Abort any in-progress seek
-        abortSeek();
+        var startIndex;
 
-        // Replay frames asynchronously
-        seekTimeout = window.setTimeout(function continueSeek() {
+        // Back up until startIndex represents current state
+        for (startIndex = index; startIndex >= 0; startIndex--) {
 
-            var startIndex;
+            var frame = frames[startIndex];
 
-            // Back up until startIndex represents current state
-            for (startIndex = index; startIndex >= 0; startIndex--) {
+            // If we've reached the current frame, startIndex represents
+            // current state by definition
+            if (startIndex === currentFrame)
+                break;
 
-                var frame = frames[startIndex];
-
-                // If we've reached the current frame, startIndex represents
-                // current state by definition
-                if (startIndex === currentFrame)
-                    break;
-
-                // If frame has associated absolute state, make that frame the
-                // current state
-                if (frame.clientState) {
-                    playbackClient.importState(frame.clientState);
-                    break;
-                }
-
+            // If frame has associated absolute state, make that frame the
+            // current state
+            if (frame.clientState) {
+                playbackClient.importState(frame.clientState);
+                break;
             }
 
-            // Advance to frame index after current state
-            startIndex++;
+        }
 
-            var startTime = new Date().getTime();
+        // Advance to frame index after current state
+        startIndex++;
 
-            // Replay any applicable incremental frames
-            for (; startIndex <= index; startIndex++) {
+        // Replay any applicable incremental frames
+        for (; startIndex <= index; startIndex++)
+            replayFrame(startIndex);
 
-                // Stop seeking if the operation is taking too long
-                var currentTime = new Date().getTime();
-                if (currentTime - startTime >= MAXIMUM_SEEK_TIME)
-                    break;
+        // Current frame is now at requested index
+        currentFrame = index;
 
-                replayFrame(startIndex);
-            }
+        // Notify of changes in position
+        if (recording.onseek)
+            recording.onseek(recording.getPosition());
 
-            // Current frame is now at requested index
-            currentFrame = startIndex - 1;
-
-            // Notify of changes in position
-            if (recording.onseek)
-                recording.onseek(recording.getPosition());
-
-            // If the seek operation has not yet completed, schedule continuation
-            if (currentFrame !== index)
-                seekToFrame(index, callback,
-                    Math.max(delay - (new Date().getTime() - startTime), 0));
-
-            // Notify that the requested seek has completed
-            else
-                callback();
-
-        }, delay || 0);
-
-    };
-
-    /**
-     * Aborts the seek operation currently in progress, if any. If no seek
-     * operation is in progress, this function has no effect.
-     *
-     * @private
-     */
-    var abortSeek = function abortSeek() {
-        window.clearTimeout(seekTimeout);
     };
 
     /**
@@ -10779,6 +10364,9 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
      * @private
      */
     var continuePlayback = function continuePlayback() {
+
+        // Advance to next frame
+        seekToFrame(currentFrame + 1);
 
         // If frames remain after advancing, schedule next frame
         if (currentFrame + 1 < frames.length) {
@@ -10795,7 +10383,7 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
             var delay = Math.max(nextRealTimestamp - new Date().getTime(), 0);
 
             // Advance to next frame after enough time has elapsed
-            seekToFrame(currentFrame + 1, function frameDelayElapsed() {
+            playbackTimeout = window.setTimeout(function frameDelayElapsed() {
                 continuePlayback();
             }, delay);
 
@@ -10930,9 +10518,7 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
      * until no further frames exist. Playback is initially paused when a
      * Guacamole.SessionRecording is created, and must be explicitly started
      * through a call to this function. If playback is already in progress,
-     * this function has no effect. If a seek operation is in progress,
-     * playback resumes at the current position, and the seek is aborted as if
-     * completed.
+     * this function has no effect.
      */
     this.play = function play() {
 
@@ -10961,17 +10547,12 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
      * Seeks to the given position within the recording. If the recording is
      * currently being played back, playback will continue after the seek is
      * performed. If the recording is currently paused, playback will be
-     * paused after the seek is performed. If a seek operation is already in
-     * progress, that seek is first aborted. The seek operation will proceed
-     * asynchronously.
+     * paused after the seek is performed.
      *
      * @param {Number} position
      *     The position within the recording to seek to, in milliseconds.
-     *
-     * @param {function} [callback]
-     *     The callback to invoke once the seek operation has completed.
      */
-    this.seek = function seek(position, callback) {
+    this.seek = function seek(position) {
 
         // Do not seek if no frames exist
         if (frames.length === 0)
@@ -10982,31 +10563,21 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
         recording.pause();
 
         // Perform seek
-        seekToFrame(findFrame(0, frames.length - 1, position), function restorePlaybackState() {
+        seekToFrame(findFrame(0, frames.length - 1, position));
 
-            // Restore playback state
-            if (originallyPlaying)
-                recording.play();
-
-            // Notify that seek has completed
-            if (callback)
-                callback();
-
-        });
+        // Restore playback state
+        if (originallyPlaying)
+            recording.play();
 
     };
 
     /**
      * Pauses playback of the recording, if playback is currently in progress.
-     * If playback is not in progress, this function has no effect. If a seek
-     * operation is in progress, the seek is aborted. Playback is initially
-     * paused when a Guacamole.SessionRecording is created, and must be
-     * explicitly started through a call to play().
+     * If playback is not in progress, this function has no effect. Playback is
+     * initially paused when a Guacamole.SessionRecording is created, and must
+     * be explicitly started through a call to play().
      */
     this.pause = function pause() {
-
-        // Abort any in-progress seek / playback
-        abortSeek();
 
         // Stop playback only if playback is in progress
         if (recording.isPlaying()) {
@@ -11015,7 +10586,8 @@ Guacamole.SessionRecording = function SessionRecording(tunnel) {
             if (recording.onpause)
                 recording.onpause();
 
-            // Playback is stopped
+            // Stop playback
+            window.clearTimeout(playbackTimeout);
             startVideoTimestamp = null;
             startRealTimestamp = null;
 
@@ -11843,25 +11415,6 @@ Guacamole.Tunnel = function() {
     this.sendMessage = function(elements) {};
 
     /**
-     * Changes the stored numeric state of this tunnel, firing the onstatechange
-     * event if the new state is different and a handler has been defined.
-     *
-     * @private
-     * @param {Number} state
-     *     The new state of this tunnel.
-     */
-    this.setState = function(state) {
-
-        // Notify only if state changes
-        if (state !== this.state) {
-            this.state = state;
-            if (this.onstatechange)
-                this.onstatechange(state);
-        }
-
-    };
-
-    /**
      * The current state of this tunnel.
      * 
      * @type {Number}
@@ -11970,13 +11523,8 @@ Guacamole.Tunnel.State = {
  *     Whether tunnel requests will be cross-domain, and thus must use CORS
  *     mechanisms and headers. By default, it is assumed that tunnel requests
  *     will be made to the same domain.
- *
- * @param {Object} [extraTunnelHeaders={}]
- *     Key value pairs containing the header names and values of any additional
- *     headers to be sent in tunnel requests. By default, no extra headers will
- *     be added.
  */
-Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
+Guacamole.HTTPTunnel = function(tunnelURL, crossDomain) {
 
     /**
      * Reference to this HTTP tunnel.
@@ -12006,32 +11554,6 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
      * @private
      */
     var receive_timeout = null;
-
-    /**
-     * Additional headers to be sent in tunnel requests. This dictionary can be
-     * populated with key/value header pairs to pass information such as authentication
-     * tokens, etc.
-     *
-     * @private
-     */
-    var extraHeaders = extraTunnelHeaders || {};
-
-    /**
-     * Adds the configured additional headers to the given request.
-     *
-     * @param {XMLHttpRequest} request
-     *     The request where the configured extra headers will be added.
-     *
-     * @param {Object} headers
-     *     The headers to be added to the request.
-     *
-     * @private
-     */
-    function addExtraHeaders(request, headers) {
-        for (var name in headers) {
-            request.setRequestHeader(name, headers[name]);
-        }
-    }
 
     /**
      * Initiates a timeout which, if data is not received, causes the tunnel
@@ -12077,11 +11599,14 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
 
         }
 
+        // Mark as closed
+        tunnel.state = Guacamole.Tunnel.State.CLOSED;
+
         // Reset output message buffer
         sendingMessages = false;
 
-        // Mark as closed
-        tunnel.setState(Guacamole.Tunnel.State.CLOSED);
+        if (tunnel.onstatechange)
+            tunnel.onstatechange(tunnel.state);
 
     }
 
@@ -12141,8 +11666,7 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
             var message_xmlhttprequest = new XMLHttpRequest();
             message_xmlhttprequest.open("POST", TUNNEL_WRITE + tunnel.uuid);
             message_xmlhttprequest.withCredentials = withCredentials;
-            addExtraHeaders(message_xmlhttprequest, extraHeaders);
-            message_xmlhttprequest.setRequestHeader("Content-type", "application/octet-stream");
+            message_xmlhttprequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded; charset=UTF-8");
 
             // Once response received, send next queued event.
             message_xmlhttprequest.onreadystatechange = function() {
@@ -12373,7 +11897,6 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
         var xmlhttprequest = new XMLHttpRequest();
         xmlhttprequest.open("GET", TUNNEL_READ + tunnel.uuid + ":" + (request_id++));
         xmlhttprequest.withCredentials = withCredentials;
-        addExtraHeaders(xmlhttprequest, extraHeaders);
         xmlhttprequest.send(null);
 
         return xmlhttprequest;
@@ -12384,9 +11907,6 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
 
         // Start waiting for connect
         reset_timeout();
-
-        // Mark the tunnel as connecting
-        tunnel.setState(Guacamole.Tunnel.State.CONNECTING);
 
         // Start tunnel and connect
         var connect_xmlhttprequest = new XMLHttpRequest();
@@ -12406,8 +11926,9 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
             // Get UUID from response
             tunnel.uuid = connect_xmlhttprequest.responseText;
 
-            // Mark as open
-            tunnel.setState(Guacamole.Tunnel.State.OPEN);
+            tunnel.state = Guacamole.Tunnel.State.OPEN;
+            if (tunnel.onstatechange)
+                tunnel.onstatechange(tunnel.state);
 
             // Start reading data
             handleResponse(makeRequest());
@@ -12416,7 +11937,6 @@ Guacamole.HTTPTunnel = function(tunnelURL, crossDomain, extraTunnelHeaders) {
 
         connect_xmlhttprequest.open("POST", TUNNEL_CONNECT, true);
         connect_xmlhttprequest.withCredentials = withCredentials;
-        addExtraHeaders(connect_xmlhttprequest, extraHeaders);
         connect_xmlhttprequest.setRequestHeader("Content-type", "application/x-www-form-urlencoded; charset=UTF-8");
         connect_xmlhttprequest.send(data);
 
@@ -12538,7 +12058,9 @@ Guacamole.WebSocketTunnel = function(tunnelURL) {
             tunnel.onerror(status);
 
         // Mark as closed
-        tunnel.setState(Guacamole.Tunnel.State.CLOSED);
+        tunnel.state = Guacamole.Tunnel.State.CLOSED;
+        if (tunnel.onstatechange)
+            tunnel.onstatechange(tunnel.state);
 
         socket.close();
 
@@ -12584,9 +12106,6 @@ Guacamole.WebSocketTunnel = function(tunnelURL) {
     this.connect = function(data) {
 
         reset_timeout();
-
-        // Mark the tunnel as connecting
-        tunnel.setState(Guacamole.Tunnel.State.CONNECTING);
 
         // Connect socket
         socket = new WebSocket(tunnelURL + "?" + data, "guacamole");
@@ -12655,7 +12174,9 @@ Guacamole.WebSocketTunnel = function(tunnelURL) {
                             tunnel.uuid = elements[0];
 
                         // Tunnel is now open and UUID is available
-                        tunnel.setState(Guacamole.Tunnel.State.OPEN);
+                        tunnel.state = Guacamole.Tunnel.State.OPEN;
+                        if (tunnel.onstatechange)
+                            tunnel.onstatechange(tunnel.state);
 
                     }
 
@@ -12879,13 +12400,8 @@ Guacamole.ChainedTunnel.prototype = new Guacamole.Tunnel();
  *     Whether tunnel requests will be cross-domain, and thus must use CORS
  *     mechanisms and headers. By default, it is assumed that tunnel requests
  *     will be made to the same domain.
- *
- * @param {Object} [extraTunnelHeaders={}]
- *     Key value pairs containing the header names and values of any additional
- *     headers to be sent in tunnel requests. By default, no extra headers will
- *     be added.
  */
-Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain, extraTunnelHeaders) {
+Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain) {
 
     /**
      * Reference to this Guacamole.StaticHTTPTunnel.
@@ -12904,30 +12420,23 @@ Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain, extraTu
     var xhr = null;
 
     /**
-     * Additional headers to be sent in tunnel requests. This dictionary can be
-     * populated with key/value header pairs to pass information such as authentication
-     * tokens, etc.
+     * Changes the stored numeric state of this tunnel, firing the onstatechange
+     * event if the new state is different and a handler has been defined.
      *
      * @private
+     * @param {Number} state
+     *     The new state of this tunnel.
      */
-    var extraHeaders = extraTunnelHeaders || {};
+    var setState = function setState(state) {
 
-    /**
-     * Adds the configured additional headers to the given request.
-     *
-     * @param {XMLHttpRequest} request
-     *     The request where the configured extra headers will be added.
-     *
-     * @param {Object} headers
-     *     The headers to be added to the request.
-     *
-     * @private
-     */
-    function addExtraHeaders(request, headers) {
-        for (var name in headers) {
-            request.setRequestHeader(name, headers[name]);
+        // Notify only if state changes
+        if (state !== tunnel.state) {
+            tunnel.state = state;
+            if (tunnel.onstatechange)
+                tunnel.onstatechange(state);
         }
-    }
+
+    };
 
     /**
      * Returns the Guacamole protocol status code which most closely
@@ -12984,13 +12493,12 @@ Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain, extraTu
         tunnel.disconnect();
 
         // Connection is now starting
-        tunnel.setState(Guacamole.Tunnel.State.CONNECTING);
+        setState(Guacamole.Tunnel.State.CONNECTING);
 
         // Start a new connection
         xhr = new XMLHttpRequest();
         xhr.open('GET', url);
         xhr.withCredentials = !!crossDomain;
-        addExtraHeaders(xhr, extraHeaders);
         xhr.responseType = 'text';
         xhr.send(null);
 
@@ -13012,7 +12520,7 @@ Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain, extraTu
             if (xhr.readyState === 3 || xhr.readyState === 4) {
 
                 // Connection is open
-                tunnel.setState(Guacamole.Tunnel.State.OPEN);
+                setState(Guacamole.Tunnel.State.OPEN);
 
                 var buffer = xhr.responseText;
                 var length = buffer.length;
@@ -13052,7 +12560,7 @@ Guacamole.StaticHTTPTunnel = function StaticHTTPTunnel(url, crossDomain, extraTu
         }
 
         // Connection is now closed
-        tunnel.setState(Guacamole.Tunnel.State.CLOSED);
+        setState(Guacamole.Tunnel.State.CLOSED);
 
     };
 
@@ -13089,7 +12597,7 @@ var Guacamole = Guacamole || {};
  *
  * @type {String}
  */
-Guacamole.API_VERSION = "0.9.14";
+Guacamole.API_VERSION = "0.9.13-incubating";
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
