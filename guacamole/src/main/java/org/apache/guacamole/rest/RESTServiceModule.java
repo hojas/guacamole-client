@@ -46,6 +46,7 @@ import org.apache.guacamole.rest.sharingprofile.SharingProfileModule;
 import org.apache.guacamole.rest.tunnel.TunnelCollectionResourceFactory;
 import org.apache.guacamole.rest.tunnel.TunnelResourceFactory;
 import org.apache.guacamole.rest.user.UserModule;
+import org.apache.guacamole.rest.usergroup.UserGroupModule;
 import org.webjars.servlet.WebjarsServlet;
 
 /**
@@ -84,9 +85,7 @@ public class RESTServiceModule extends ServletModule {
         bind(DecorationService.class);
 
         // Automatically translate GuacamoleExceptions for REST methods
-        MethodInterceptor interceptor = new RESTExceptionWrapper();
-        requestInjection(interceptor);
-        bindInterceptor(Matchers.any(), new RESTMethodMatcher(), interceptor);
+        bind(RESTExceptionMapper.class);
 
         // Set up the API endpoints
         bind(ExtensionRESTService.class);
@@ -107,6 +106,7 @@ public class RESTServiceModule extends ServletModule {
         install(new ConnectionGroupModule());
         install(new SharingProfileModule());
         install(new UserModule());
+        install(new UserGroupModule());
 
         // Set up the servlet and JSON mappings
         bind(GuiceContainer.class);

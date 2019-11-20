@@ -19,6 +19,7 @@
 
 package org.apache.guacamole.auth.jdbc.sharing.user;
 
+import java.util.Collections;
 import org.apache.guacamole.auth.jdbc.user.RemoteAuthenticatedUser;
 import org.apache.guacamole.net.auth.AuthenticatedUser;
 import org.apache.guacamole.net.auth.AuthenticationProvider;
@@ -50,7 +51,8 @@ public class SharedAuthenticatedUser extends RemoteAuthenticatedUser {
      *     The AuthenticatedUser to copy.
      */
     public SharedAuthenticatedUser(AuthenticatedUser authenticatedUser) {
-        super(authenticatedUser.getAuthenticationProvider(), authenticatedUser.getCredentials());
+        super(authenticatedUser.getAuthenticationProvider(),
+                authenticatedUser.getCredentials(), Collections.<String>emptySet());
         this.shareKey = null;
         this.identifier = authenticatedUser.getIdentifier();
     }
@@ -73,7 +75,7 @@ public class SharedAuthenticatedUser extends RemoteAuthenticatedUser {
      */
     public SharedAuthenticatedUser(AuthenticationProvider authenticationProvider,
             Credentials credentials, String shareKey) {
-        super(authenticationProvider, credentials);
+        super(authenticationProvider, credentials, Collections.<String>emptySet());
         this.shareKey = shareKey;
         this.identifier = AuthenticatedUser.ANONYMOUS_IDENTIFIER;
     }

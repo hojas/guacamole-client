@@ -46,10 +46,9 @@ angular.module('auth').factory('authenticationService', ['$injector',
     var Error                = $injector.get('Error');
 
     // Required services
-    var $cookieStore = $injector.get('$cookieStore');
-    var $http        = $injector.get('$http');
-    var $q           = $injector.get('$q');
-    var $rootScope   = $injector.get('$rootScope');
+    var $rootScope          = $injector.get('$rootScope');
+    var localStorageService = $injector.get('localStorageService');
+    var requestService      = $injector.get('requestService');
 
     var service = {};
 
@@ -62,12 +61,12 @@ angular.module('auth').factory('authenticationService', ['$injector',
     var cachedResult = null;
 
     /**
-     * The unique identifier of the local cookie which stores the result of the
-     * last authentication attempt.
+     * The unique identifier of the local storage key which stores the result
+     * of the last authentication attempt.
      *
      * @type String
      */
-    var AUTH_COOKIE_ID = "GUAC_AUTH";
+    var AUTH_STORAGE_KEY = 'GUAC_AUTH';
 
     /**
      * Retrieves the last successful authentication result. If the user has not
@@ -85,7 +84,7 @@ angular.module('auth').factory('authenticationService', ['$injector',
             return cachedResult;
 
         // Return explicit null if no auth data is currently stored
-        var data = $cookieStore.get(AUTH_COOKIE_ID);
+        var data = localStorageService.getItem(AUTH_STORAGE_KEY);
         if (!data)
             return null;
 
@@ -107,7 +106,7 @@ angular.module('auth').factory('authenticationService', ['$injector',
         // Clear the currently-stored result if the last attempt failed
         if (!data) {
             cachedResult = null;
-            $cookieStore.remove(AUTH_COOKIE_ID);
+            localStorageService.removeItem(AUTH_STORAGE_KEY);
         }
 
         // Otherwise store the authentication attempt directly
@@ -116,9 +115,9 @@ angular.module('auth').factory('authenticationService', ['$injector',
             // Always store in cache
             cachedResult = data;
 
-            // Store cookie ONLY if not anonymous
+            // Persist result past tab/window closure ONLY if not anonymous
             if (data.username !== AuthenticationResult.ANONYMOUS_USERNAME)
-                $cookieStore.put(AUTH_COOKIE_ID, data);
+                localStorageService.setItem(AUTH_STORAGE_KEY, data);
 
         }
 
@@ -155,27 +154,8 @@ angular.module('auth').factory('authenticationService', ['$injector',
      */
     service.authenticate = function authenticate(parameters) {
 
-        var authenticationProcess = $q.defer();
-
-        /**
-         * Stores the given authentication data within the browser and marks
-         * the authentication process as completed.
-         *
-         * @param {Object} data
-         *     The authentication data returned by the token REST endpoint.
-         */
-        var completeAuthentication = function completeAuthentication(data) {
-
-            // Store auth data
-            setAuthenticationResult(new AuthenticationResult(data));
-
-            // Process is complete
-            authenticationProcess.resolve();
-
-        };
-
         // Attempt authentication
-        $http({
+        return requestService({
             method: 'POST',
             url: 'api/tokens',
             headers: {
@@ -185,7 +165,7 @@ angular.module('auth').factory('authenticationService', ['$injector',
         })
 
         // If authentication succeeds, handle received auth data
-        .success(function authenticationSuccessful(data) {
+        .then(function authenticationSuccessful(data) {
 
             var currentToken = service.getCurrentToken();
 
@@ -193,35 +173,29 @@ angular.module('auth').factory('authenticationService', ['$injector',
             // if any, and notify listeners of the new token
             if (data.authToken !== currentToken) {
 
-                // If an old token existed, explicitly logout first
+                // If an old token existed, request that the token be revoked
                 if (currentToken) {
-                    service.logout()
-                    ['finally'](function logoutComplete() {
-                        completeAuthentication(data);
-                        $rootScope.$broadcast('guacLogin', data.authToken);
-                    });
+                    service.logout().catch(angular.noop)
                 }
 
-                // Otherwise, simply complete authentication and notify of login
-                else {
-                    completeAuthentication(data);
-                    $rootScope.$broadcast('guacLogin', data.authToken);
-                }
+                // Notify of login and new token
+                setAuthenticationResult(new AuthenticationResult(data));
+                $rootScope.$broadcast('guacLogin', data.authToken);
 
             }
 
-            // Otherwise, just finish the auth process
+            // Update cached authentication result, even if the token remains
+            // the same
             else
-                completeAuthentication(data);
+                setAuthenticationResult(new AuthenticationResult(data));
+
+            // Authentication was successful
+            return data;
 
         })
 
         // If authentication fails, propogate failure to returned promise
-        .error(function authenticationFailed(error) {
-
-            // Ensure error object exists, even if the error response is not
-            // coming from the authentication REST endpoint
-            error = new Error(error);
+        ['catch'](requestService.createErrorCallback(function authenticationFailed(error) {
 
             // Request credentials if provided credentials were invalid
             if (error.type === Error.Type.INVALID_CREDENTIALS)
@@ -231,10 +205,14 @@ angular.module('auth').factory('authenticationService', ['$injector',
             else if (error.type === Error.Type.INSUFFICIENT_CREDENTIALS)
                 $rootScope.$broadcast('guacInsufficientCredentials', parameters, error);
 
-            authenticationProcess.reject(error);
-        });
+            // Abort rendering of page if an internal error occurs
+            else if (error.type === Error.Type.INTERNAL_ERROR)
+                $rootScope.$broadcast('guacFatalPageError', error);
 
-        return authenticationProcess.promise;
+            // Authentication failed
+            throw error;
+
+        }));
 
     };
 
@@ -316,7 +294,7 @@ angular.module('auth').factory('authenticationService', ['$injector',
         $rootScope.$broadcast('guacLogout', token);
 
         // Delete old token
-        return $http({
+        return requestService({
             method: 'DELETE',
             url: 'api/tokens/' + token
         });

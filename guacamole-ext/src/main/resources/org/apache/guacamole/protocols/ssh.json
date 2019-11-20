@@ -12,6 +12,10 @@
                 {
                     "name"  : "port",
                     "type"  : "NUMERIC"
+                },
+                {
+                    "name"  : "host-key",
+                    "type"  : "TEXT"
                 }
             ]
         },
@@ -43,7 +47,7 @@
             "fields" : [
                 {
                     "name"  : "color-scheme",
-                    "type"  : "ENUM",
+                    "type"  : "TERMINAL_COLOR_SCHEME",
                     "options" : [ "", "black-white", "gray-black", "green-black", "white-black" ]
                 },
                 {
@@ -56,7 +60,27 @@
                     "options" : [ "", "8", "9", "10", "11", "12", "14", "18", "24", "30", "36", "48", "60", "72", "96" ]
                 },
                 {
+                    "name"  : "scrollback",
+                    "type"  : "NUMERIC"
+                },
+                {
                     "name"    : "read-only",
+                    "type"    : "BOOLEAN",
+                    "options" : [ "true" ]
+                }
+            ]
+        },
+
+        {
+            "name"  : "clipboard",
+            "fields" : [
+                {
+                    "name"    : "disable-copy",
+                    "type"    : "BOOLEAN",
+                    "options" : [ "true" ]
+                },
+                {
+                    "name"    : "disable-paste",
                     "type"    : "BOOLEAN",
                     "options" : [ "true" ]
                 }
@@ -71,11 +95,20 @@
                     "type"  : "TEXT"
                 },
                 {
+                    "name"  : "locale",
+                    "type"  : "TEXT"
+                },
+                {
+                    "name"  : "timezone",
+                    "type"  : "TIMEZONE"
+                },
+                {
                     "name"  : "server-alive-interval",
                     "type"  : "NUMERIC"
                 }
             ]
         },
+
         {
             "name" : "behavior",
             "fields" : [
@@ -83,6 +116,11 @@
                     "name"    : "backspace",
                     "type"    : "ENUM",
                     "options" : [ "", "127", "8" ]
+                },
+                {
+                    "name"    : "terminal-type",
+                    "type"    : "ENUM",
+                    "options" : [ "", "xterm", "xterm-256color", "vt220", "vt100", "ansi", "linux" ]
                 }
             ]
         },

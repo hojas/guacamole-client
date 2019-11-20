@@ -44,6 +44,7 @@ angular.module('settings').directive('guacSettingsConnectionHistory', [function 
             var $translate     = $injector.get('$translate');
             var csvService     = $injector.get('csvService');
             var historyService = $injector.get('historyService');
+            var requestService = $injector.get('requestService');
 
             /**
              * The identifier of the currently-selected data source.
@@ -95,7 +96,7 @@ angular.module('settings').directive('guacSettingsConnectionHistory', [function 
                 // Store received date format
                 $scope.dateFormat = retrievedDateFormat;
 
-            });
+            }, angular.noop);
             
             /**
              * Returns true if the connection history records have been loaded,
@@ -169,7 +170,7 @@ angular.module('settings').directive('guacSettingsConnectionHistory', [function 
                         return predicate === 'startDate' || predicate === '-startDate';
                     })
                 )
-                .success(function historyRetrieved(historyEntries) {
+                .then(function historyRetrieved(historyEntries) {
 
                     // Wrap all history entries for sake of display
                     $scope.historyEntryWrappers = [];
@@ -177,7 +178,7 @@ angular.module('settings').directive('guacSettingsConnectionHistory', [function 
                        $scope.historyEntryWrappers.push(new ConnectionHistoryEntryWrapper(historyEntry)); 
                     });
 
-                });
+                }, requestService.DIE);
 
             };
             
@@ -227,7 +228,7 @@ angular.module('settings').directive('guacSettingsConnectionHistory', [function 
                     // Save the result
                     saveAs(csvService.toBlob(records), translations['SETTINGS_CONNECTION_HISTORY.FILENAME_HISTORY_CSV']);
 
-                });
+                }, angular.noop);
 
             };
 

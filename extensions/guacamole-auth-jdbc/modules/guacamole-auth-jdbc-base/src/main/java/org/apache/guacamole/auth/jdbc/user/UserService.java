@@ -37,8 +37,8 @@ import org.apache.guacamole.GuacamoleUnsupportedException;
 import org.apache.guacamole.auth.jdbc.base.ActivityRecordModel;
 import org.apache.guacamole.auth.jdbc.base.ActivityRecordSearchTerm;
 import org.apache.guacamole.auth.jdbc.base.ActivityRecordSortPredicate;
+import org.apache.guacamole.auth.jdbc.base.EntityMapper;
 import org.apache.guacamole.auth.jdbc.base.ModeledActivityRecord;
-import org.apache.guacamole.auth.jdbc.connection.ConnectionRecordModel;
 import org.apache.guacamole.auth.jdbc.permission.ObjectPermissionMapper;
 import org.apache.guacamole.auth.jdbc.permission.ObjectPermissionModel;
 import org.apache.guacamole.auth.jdbc.permission.UserPermissionMapper;
@@ -49,7 +49,6 @@ import org.apache.guacamole.form.PasswordField;
 import org.apache.guacamole.net.auth.ActivityRecord;
 import org.apache.guacamole.net.auth.AuthenticatedUser;
 import org.apache.guacamole.net.auth.AuthenticationProvider;
-import org.apache.guacamole.net.auth.ConnectionRecord;
 import org.apache.guacamole.net.auth.User;
 import org.apache.guacamole.net.auth.credentials.CredentialsInfo;
 import org.apache.guacamole.net.auth.credentials.GuacamoleInsufficientCredentialsException;
@@ -114,6 +113,12 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         NEW_PASSWORD,
         CONFIRM_NEW_PASSWORD
     ));
+
+    /**
+     * Mapper for creating/deleting entities.
+     */
+    @Inject
+    private EntityMapper entityMapper;
 
     /**
      * Mapper for accessing users.
@@ -211,17 +216,17 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
             throws GuacamoleException {
 
         // Return whether user has explicit user creation permission
-        SystemPermissionSet permissionSet = user.getUser().getSystemPermissions();
+        SystemPermissionSet permissionSet = user.getUser().getEffectivePermissions().getSystemPermissions();
         return permissionSet.hasPermission(SystemPermission.Type.CREATE_USER);
 
     }
 
     @Override
-    protected ObjectPermissionSet getPermissionSet(ModeledAuthenticatedUser user)
+    protected ObjectPermissionSet getEffectivePermissionSet(ModeledAuthenticatedUser user)
             throws GuacamoleException {
 
         // Return permissions related to users
-        return user.getUser().getUserPermissions();
+        return user.getUser().getEffectivePermissions().getUserPermissions();
 
     }
 
@@ -243,6 +248,9 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         // Verify new password does not violate defined policies (if specified)
         if (object.getPassword() != null)
             passwordPolicyService.verifyPassword(object.getIdentifier(), object.getPassword());
+
+        // Create base entity object, implicitly populating underlying entity ID
+        entityMapper.insert(model);
 
     }
 
@@ -294,8 +302,7 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         for (ObjectPermission.Type permissionType : IMPLICIT_USER_PERMISSIONS) {
             
             ObjectPermissionModel permissionModel = new ObjectPermissionModel();
-            permissionModel.setUserID(model.getObjectID());
-            permissionModel.setUsername(model.getIdentifier());
+            permissionModel.setEntityID(model.getEntityID());
             permissionModel.setType(permissionType);
             permissionModel.setObjectIdentifier(model.getIdentifier());
 
@@ -415,6 +422,43 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         // Return already-authenticated user
         return user;
 
+    }
+    
+    /**
+     * Generates an empty (skeleton) user corresponding to the given
+     * AuthenticatedUser.  The user will not be stored in the database, and
+     * will only be available in-memory during the time the session is
+     * active.
+     * 
+     * @param authenticationProvider
+     *     The AuthenticationProvider on behalf of which the user is being
+     *     retrieved.
+     *
+     * @param authenticatedUser
+     *     The AuthenticatedUser to generate the skeleton account for.
+     *
+     * @return
+     *     The empty ModeledUser which corresponds to the given
+     *     AuthenticatedUser.
+     *
+     * @throws GuacamoleException
+     *     If a ModeledUser object for the user corresponding to the given
+     *     AuthenticatedUser cannot be created.
+     */
+    public ModeledUser retrieveSkeletonUser(AuthenticationProvider authenticationProvider,
+            AuthenticatedUser authenticatedUser) throws GuacamoleException {
+        
+        // Set up an empty user model
+        ModeledUser user = getObjectInstance(null,
+                new UserModel(authenticatedUser.getIdentifier()));
+        
+        // Create user object, and configure cyclic reference
+        user.setCurrentUser(new ModeledAuthenticatedUser(authenticatedUser,
+                authenticationProvider, user));
+        
+        // Return the new user.
+        return user;
+        
     }
 
     /**
@@ -584,11 +628,10 @@ public class UserService extends ModeledDirectoryObjectService<ModeledUser, User
         // Otherwise only return explicitly readable history records
         else
             searchResults = userRecordMapper.searchReadable(user.getUser().getModel(),
-                    requiredContents, sortPredicates, limit);
+                    requiredContents, sortPredicates, limit, user.getEffectiveUserGroups());
 
         return getObjectInstances(searchResults);
 
     }
-
 
 }

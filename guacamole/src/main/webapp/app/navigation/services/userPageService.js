@@ -35,6 +35,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
     var connectionGroupService   = $injector.get('connectionGroupService');
     var dataSourceService        = $injector.get('dataSourceService');
     var permissionService        = $injector.get('permissionService');
+    var requestService           = $injector.get('requestService');
     var translationStringService = $injector.get('translationStringService');
     
     var service = {};
@@ -66,83 +67,104 @@ angular.module('navigation').factory('userPageService', ['$injector',
      */
     var generateHomePage = function generateHomePage(rootGroups, permissions) {
 
-        var homePage = null;
         var settingsPages = generateSettingsPages(permissions);
 
         // If user has access to settings pages, return home page and skip
         // evaluation for automatic connections.  The Preferences page is
-        // a Settings page and is always visible, so we look for more than
-        // one to indicate access to administrative pages.
-        if (settingsPages.length > 1)
+        // a Settings page and is always visible, and the Session management
+        // page is also available to all users so that they can kill their
+        // own session.  We look for more than those two pages to determine
+        // if we should go to the home page.
+        if (settingsPages.length > 2)
             return SYSTEM_HOME_PAGE;
+
+        // If exactly one connection or balancing group is available, use
+        // that as the home page
+        var clientPages = service.getClientPages(rootGroups);
+        return (clientPages.length === 1) ? clientPages[0] : SYSTEM_HOME_PAGE;
+
+    };
+
+    /**
+     * Adds to the given array all pages that the current user may use to
+     * access connections or balancing groups that are descendants of the given
+     * connection group.
+     *
+     * @param {PageDefinition[]} clientPages
+     *     The array that pages should be added to.
+     *
+     * @param {String} dataSource
+     *     The data source containing the given connection group.
+     *
+     * @param {ConnectionGroup} connectionGroup
+     *     The connection group ancestor of the connection or balancing group
+     *     descendants whose pages should be added to the given array.
+     */
+    var addClientPages = function addClientPages(clientPages, dataSource, connectionGroup) {
+
+        // Add pages for all child connections
+        angular.forEach(connectionGroup.childConnections, function addConnectionPage(connection) {
+            clientPages.push(new PageDefinition({
+                name : connection.name,
+                url  : '/client/' + ClientIdentifier.toString({
+                    dataSource : dataSource,
+                    type       : ClientIdentifier.Types.CONNECTION,
+                    id         : connection.identifier
+                })
+            }));
+        });
+
+        // Add pages for all child balancing groups, as well as the connectable
+        // descendants of all balancing groups of any type
+        angular.forEach(connectionGroup.childConnectionGroups, function addConnectionGroupPage(connectionGroup) {
+
+            if (connectionGroup.type === ConnectionGroup.Type.BALANCING) {
+                clientPages.push(new PageDefinition({
+                    name : connectionGroup.name,
+                    url  : '/client/' + ClientIdentifier.toString({
+                        dataSource : dataSource,
+                        type       : ClientIdentifier.Types.CONNECTION_GROUP,
+                        id         : connectionGroup.identifier
+                    })
+                }));
+            }
+
+            addClientPages(clientPages, dataSource, connectionGroup);
+
+        });
+
+    };
+
+    /**
+     * Returns a full list of all pages that the current user may use to access
+     * a connection or balancing group, regardless of the depth of those
+     * connections/groups within the connection hierarchy.
+     *
+     * @param {Object.<String, ConnectionGroup>} rootGroups
+     *     A map of all root connection groups visible to the current user,
+     *     where each key is the identifier of the corresponding data source.
+     *
+     * @returns {PageDefinition[]}
+     *     A list of all pages that the current user may use to access a
+     *     connection or balancing group.
+     */
+    service.getClientPages = function getClientPages(rootGroups) {
+
+        var clientPages = [];
 
         // Determine whether a connection or balancing group should serve as
         // the home page
         for (var dataSource in rootGroups) {
+            addClientPages(clientPages, dataSource, rootGroups[dataSource]);
+        }
 
-            // Get corresponding root group
-            var rootGroup = rootGroups[dataSource];
-
-            // Get children
-            var connections      = rootGroup.childConnections      || [];
-            var connectionGroups = rootGroup.childConnectionGroups || [];
-
-            // Calculate total number of root-level objects
-            var totalRootObjects = connections.length + connectionGroups.length;
-
-            // If exactly one connection or balancing group is available, use
-            // that as the home page
-            if (homePage === null && totalRootObjects === 1) {
-
-                var connection      = connections[0];
-                var connectionGroup = connectionGroups[0];
-
-                // Only one connection present, use as home page
-                if (connection) {
-                    homePage = new PageDefinition({
-                        name : connection.name,
-                        url  : '/client/' + ClientIdentifier.toString({
-                            dataSource : dataSource,
-                            type       : ClientIdentifier.Types.CONNECTION,
-                            id         : connection.identifier
-                        })
-                    });
-                }
-
-                // Only one balancing group present, use as home page
-                if (connectionGroup
-                        && connectionGroup.type === ConnectionGroup.Type.BALANCING
-                        && _.isEmpty(connectionGroup.childConnections)
-                        && _.isEmpty(connectionGroup.childConnectionGroups)) {
-                    homePage = new PageDefinition({
-                        name : connectionGroup.name,
-                        url  : '/client/' + ClientIdentifier.toString({
-                            dataSource : dataSource,
-                            type       : ClientIdentifier.Types.CONNECTION_GROUP,
-                            id         : connectionGroup.identifier
-                        })
-                    });
-                }
-
-            }
-
-            // Otherwise, a connection or balancing group cannot serve as the
-            // home page
-            else if (totalRootObjects >= 1) {
-                homePage = null;
-                break;
-            }
-
-        } // end for each data source
-
-        // Use default home page if no other is available
-        return homePage || SYSTEM_HOME_PAGE;
+        return clientPages;
 
     };
 
     /**
      * Returns a promise which resolves with an appropriate home page for the
-     * current user.
+     * current user. The promise will not be rejected.
      *
      * @returns {Promise.<Page>}
      *     A promise which resolves with the user's default home page.
@@ -169,7 +191,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
         })
         .then(function rootConnectionGroupsPermissionsRetrieved(data) {
             deferred.resolve(generateHomePage(data.rootGroups,data.permissionsSets));
-        });
+        }, requestService.DIE);
 
         return deferred.promise;
 
@@ -191,9 +213,9 @@ angular.module('navigation').factory('userPageService', ['$injector',
         var pages = [];
         
         var canManageUsers = [];
+        var canManageUserGroups = [];
         var canManageConnections = [];
         var canViewConnectionRecords = [];
-        var canManageSessions = [];
 
         // Inspect the contents of each provided permission set
         angular.forEach(authenticationService.getAvailableDataSources(), function inspectPermissions(dataSource) {
@@ -234,6 +256,24 @@ angular.module('navigation').factory('userPageService', ['$injector',
                 canManageUsers.push(dataSource);
             }
 
+            // Determine whether the current user needs access to the group management UI
+            if (
+                    // System permissions
+                       PermissionSet.hasSystemPermission(permissions, PermissionSet.SystemPermissionType.ADMINISTER)
+                    || PermissionSet.hasSystemPermission(permissions, PermissionSet.SystemPermissionType.CREATE_USER_GROUP)
+
+                    // Permission to update user groups
+                    || PermissionSet.hasUserGroupPermission(permissions, PermissionSet.ObjectPermissionType.UPDATE)
+
+                    // Permission to delete user groups
+                    || PermissionSet.hasUserGroupPermission(permissions, PermissionSet.ObjectPermissionType.DELETE)
+
+                    // Permission to administer user groups
+                    || PermissionSet.hasUserGroupPermission(permissions, PermissionSet.ObjectPermissionType.ADMINISTER)
+            ) {
+                canManageUserGroups.push(dataSource);
+            }
+
             // Determine whether the current user needs access to the connection management UI
             if (
                     // System permissions
@@ -256,24 +296,21 @@ angular.module('navigation').factory('userPageService', ['$injector',
                 canManageConnections.push(dataSource);
             }
 
-            // Determine whether the current user needs access to the session management UI or view connection history
+            // Determine whether the current user needs access to view connection history
             if (
-                    // A user must be a system administrator to manage sessions
+                    // A user must be a system administrator to view connection records
                     PermissionSet.hasSystemPermission(permissions, PermissionSet.SystemPermissionType.ADMINISTER)
             ) {
-                canManageSessions.push(dataSource);
                 canViewConnectionRecords.push(dataSource);
             }
 
         });
 
-        // If user can manage sessions, add link to sessions management page
-        if (canManageSessions.length) {
-            pages.push(new PageDefinition({
-                name : 'USER_MENU.ACTION_MANAGE_SESSIONS',
-                url  : '/settings/sessions'
-            }));
-        }
+        // Add link to Session management (always accessible)
+        pages.push(new PageDefinition({
+            name : 'USER_MENU.ACTION_MANAGE_SESSIONS',
+            url  : '/settings/sessions'
+        }));
 
         // If user can manage connections, add links for connection management pages
         angular.forEach(canViewConnectionRecords, function addConnectionHistoryLink(dataSource) {
@@ -291,6 +328,14 @@ angular.module('navigation').factory('userPageService', ['$injector',
             pages.push(new PageDefinition({
                 name : 'USER_MENU.ACTION_MANAGE_USERS',
                 url  : '/settings/users'
+            }));
+        }
+
+        // If user can manage user groups, add link to group management page
+        if (canManageUserGroups.length) {
+            pages.push(new PageDefinition({
+                name : 'USER_MENU.ACTION_MANAGE_USER_GROUPS',
+                url  : '/settings/userGroups'
             }));
         }
 
@@ -317,7 +362,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
     /**
      * Returns a promise which resolves to an array of all settings pages that
      * the current user can visit. This can include any of the various manage
-     * pages.
+     * pages. The promise will not be rejected.
      *
      * @returns {Promise.<Page[]>} 
      *     A promise which resolves to an array of all settings pages that the
@@ -329,7 +374,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
 
         // Retrieve current permissions
         dataSourceService.apply(
-            permissionService.getPermissions,
+            permissionService.getEffectivePermissions,
             authenticationService.getAvailableDataSources(),
             authenticationService.getCurrentUsername() 
         )
@@ -337,7 +382,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
         // Resolve promise using settings pages derived from permissions
         .then(function permissionsRetrieved(permissions) {
             deferred.resolve(generateSettingsPages(permissions));
-        });
+        }, requestService.DIE);
         
         return deferred.promise;
 
@@ -387,7 +432,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
      * Returns a promise which resolves to an array of all main pages that the
      * current user can visit. This can include the home page, manage pages,
      * etc. In the case that there are no applicable pages of this sort, it may
-     * return a client page.
+     * return a client page. The promise will not be rejected.
      *
      * @returns {Promise.<Page[]>} 
      *     A promise which resolves to an array of all main pages that the
@@ -418,11 +463,11 @@ angular.module('navigation').factory('userPageService', ['$injector',
         .then(function rootConnectionGroupsRetrieved(retrievedRootGroups) {
             rootGroups = retrievedRootGroups;
             resolveMainPages();
-        });
+        }, requestService.DIE);
 
         // Retrieve current permissions
         dataSourceService.apply(
-            permissionService.getPermissions,
+            permissionService.getEffectivePermissions,
             authenticationService.getAvailableDataSources(),
             authenticationService.getCurrentUsername()
         )
@@ -431,7 +476,7 @@ angular.module('navigation').factory('userPageService', ['$injector',
         .then(function permissionsRetrieved(retrievedPermissions) {
             permissions = retrievedPermissions;
             resolveMainPages();
-        });
+        }, requestService.DIE);
         
         return deferred.promise;
 

@@ -179,6 +179,23 @@ angular.module('clipboard').factory('clipboardService', ['$injector',
 
         var deferred = $q.defer();
 
+        try {
+
+            // Attempt to read the clipboard using the Asynchronous Clipboard
+            // API, if it's available
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                if (data.type === 'text/plain') {
+                    navigator.clipboard.writeText(data.data).then(deferred.resolve, deferred.reject);
+                    return deferred.promise;
+                }
+            }
+
+        }
+
+        // Ignore any hard failures to use Asynchronous Clipboard API, falling
+        // back to traditional document.execCommand()
+        catch (ignore) {}
+
         // Track the originally-focused element prior to changing focus
         var originalElement = document.activeElement;
         pushSelection();
@@ -415,80 +432,101 @@ angular.module('clipboard').factory('clipboardService', ['$injector',
 
         var deferred = $q.defer();
 
-        // Mark read attempt as in progress
-        pendingRead = deferred.promise;
+        try {
+
+            // Attempt to read the clipboard using the Asynchronous Clipboard
+            // API, if it's available
+            if (navigator.clipboard && navigator.clipboard.readText) {
+
+                navigator.clipboard.readText().then(function textRead(text) {
+                    deferred.resolve(new ClipboardData({
+                        type : 'text/plain',
+                        data : text
+                    }));
+                }, deferred.reject);
+
+                return deferred.promise;
+
+            }
+
+        }
+
+        // Ignore any hard failures to use Asynchronous Clipboard API, falling
+        // back to traditional document.execCommand()
+        catch (ignore) {}
+
+        // Track the originally-focused element prior to changing focus
+        var originalElement = document.activeElement;
+
+        /**
+         * Attempts to paste the clipboard contents into the
+         * currently-focused element. The promise related to the current
+         * attempt to read the clipboard will be resolved or rejected
+         * depending on whether the attempt to paste succeeds.
+         */
+        var performPaste = function performPaste() {
+
+            // Attempt paste local clipboard into clipboard DOM element
+            if (document.execCommand('paste')) {
+
+                // If the pasted data is a single image, resolve with a blob
+                // containing that image
+                var currentImage = service.getImageContent(clipboardContent);
+                if (currentImage) {
+
+                    // Convert the image's data URL into a blob
+                    var blob = service.parseDataURL(currentImage);
+                    if (blob) {
+                        deferred.resolve(new ClipboardData({
+                            type : blob.type,
+                            data : blob
+                        }));
+                    }
+
+                    // Reject if conversion fails
+                    else
+                        deferred.reject();
+
+                } // end if clipboard is an image
+
+                // Otherwise, assume the clipboard contains plain text
+                else
+                    deferred.resolve(new ClipboardData({
+                        type : 'text/plain',
+                        data : clipboardContent.value
+                    }));
+
+            }
+
+            // Otherwise, reading from the clipboard has failed
+            else
+                deferred.reject();
+
+        };
+
+        // Mark read attempt as in progress, cleaning up event listener and
+        // selection once the paste attempt has completed
+        pendingRead = deferred.promise['finally'](function cleanupReadAttempt() {
+
+            // Do not use future changes in focus
+            clipboardContent.removeEventListener('focus', performPaste);
+
+            // Unfocus the clipboard DOM event to avoid mobile keyboard opening,
+            // restoring whichever element was originally focused
+            clipboardContent.blur();
+            originalElement.focus();
+            popSelection();
+
+            // No read is pending any longer
+            pendingRead = null;
+
+        });
 
         // Wait for the next event queue run before attempting to read
         // clipboard data (in case the copy/cut has not yet completed)
         $window.setTimeout(function deferredClipboardRead() {
 
-            // Track the originally-focused element prior to changing focus
-            var originalElement = document.activeElement;
             pushSelection();
-
-            /**
-             * Attempts to paste the clipboard contents into the
-             * currently-focused element. The promise related to the current
-             * attempt to read the clipboard will be resolved or rejected
-             * depending on whether the attempt to paste succeeds.
-             */
-            var performPaste = function performPaste() {
-
-                // Attempt paste local clipboard into clipboard DOM element
-                if (document.execCommand('paste')) {
-
-                    // If the pasted data is a single image, resolve with a blob
-                    // containing that image
-                    var currentImage = service.getImageContent(clipboardContent);
-                    if (currentImage) {
-
-                        // Convert the image's data URL into a blob
-                        var blob = service.parseDataURL(currentImage);
-                        if (blob) {
-                            deferred.resolve(new ClipboardData({
-                                type : blob.type,
-                                data : blob
-                            }));
-                        }
-
-                        // Reject if conversion fails
-                        else
-                            deferred.reject();
-
-                    } // end if clipboard is an image
-
-                    // Otherwise, assume the clipboard contains plain text
-                    else
-                        deferred.resolve(new ClipboardData({
-                            type : 'text/plain',
-                            data : clipboardContent.value
-                        }));
-
-                }
-
-                // Otherwise, reading from the clipboard has failed
-                else
-                    deferred.reject();
-
-            };
-
-            // Clean up event listener and selection once the paste attempt has
-            // completed
-            deferred.promise['finally'](function cleanupReadAttempt() {
-
-                // Do not use future changes in focus
-                clipboardContent.removeEventListener('focus', performPaste);
-
-                // Unfocus the clipboard DOM event to avoid mobile keyboard opening,
-                // restoring whichever element was originally focused
-                clipboardContent.blur();
-                originalElement.focus();
-                popSelection();
-
-                // No read is pending any longer
-                pendingRead = null;
-
-            });
 
             // Ensure clipboard element is blurred (and that the "focus" event
             // will fire)
@@ -506,7 +544,8 @@ angular.module('clipboard').factory('clipboardService', ['$injector',
 
         }, CLIPBOARD_READ_DELAY);
 
-        return deferred.promise;
+        return pendingRead;
+
     };
 
     return service;

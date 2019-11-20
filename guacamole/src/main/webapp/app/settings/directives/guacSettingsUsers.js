@@ -43,24 +43,12 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
             var $translate             = $injector.get('$translate');
             var authenticationService  = $injector.get('authenticationService');
             var dataSourceService      = $injector.get('dataSourceService');
-            var guacNotification       = $injector.get('guacNotification');
             var permissionService      = $injector.get('permissionService');
+            var requestService         = $injector.get('requestService');
             var userService            = $injector.get('userService');
 
             // Identifier of the current user
             var currentUsername = authenticationService.getCurrentUsername();
-
-            /**
-             * An action to be provided along with the object sent to
-             * showStatus which closes the currently-shown status dialog.
-             */
-            var ACKNOWLEDGE_ACTION = {
-                name        : "SETTINGS_USERS.ACTION_ACKNOWLEDGE",
-                // Handle action
-                callback    : function acknowledgeCallback() {
-                    guacNotification.showStatus(false);
-                }
-            };
 
             /**
              * The identifiers of all data sources accessible by the current
@@ -100,6 +88,8 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
              * @type String[]
              */
             $scope.filteredUserProperties = [
+                'user.attributes["guac-full-name"]',
+                'user.attributes["guac-organization"]',
                 'user.lastActive',
                 'user.username'
             ];
@@ -119,7 +109,9 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
              */
             $scope.order = new SortOrder([
                 'user.username',
-                '-user.lastActive'
+                '-user.lastActive',
+                'user.attributes["guac-organization"]',
+                'user.attributes["guac-full-name"]'
             ]);
 
             // Get session date format
@@ -129,7 +121,7 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
                 // Store received date format
                 $scope.dateFormat = retrievedDateFormat;
 
-            });
+            }, angular.noop);
 
             /**
              * Returns whether critical data has completed being loaded.
@@ -162,9 +154,11 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
                     return null;
 
                 // For each data source
-                for (var dataSource in $scope.permissions) {
+                var dataSources = _.keys($scope.permissions).sort();
+                for (var i = 0; i < dataSources.length; i++) {
 
                     // Retrieve corresponding permission set
+                    var dataSource = dataSources[i];
                     var permissionSet = $scope.permissions[dataSource];
 
                     // Can create users if adminstrator or have explicit permission
@@ -232,7 +226,7 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
 
             // Retrieve current permissions
             dataSourceService.apply(
-                permissionService.getPermissions,
+                permissionService.getEffectivePermissions,
                 dataSources,
                 currentUsername
             )
@@ -287,9 +281,9 @@ angular.module('settings').directive('guacSettingsUsers', [function guacSettings
                         });
                     });
 
-                });
+                }, requestService.DIE);
 
-            });
+            }, requestService.DIE);
             
         }]
     };

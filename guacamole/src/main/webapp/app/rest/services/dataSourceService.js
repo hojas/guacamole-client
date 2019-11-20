@@ -23,8 +23,12 @@
 angular.module('rest').factory('dataSourceService', ['$injector',
         function dataSourceService($injector) {
 
+    // Required types
+    var Error = $injector.get('Error');
+
     // Required services
-    var $q = $injector.get('$q');
+    var $q             = $injector.get('$q');
+    var requestService = $injector.get('requestService');
 
     // Service containing all caches
     var service = {};
@@ -83,23 +87,22 @@ angular.module('rest').factory('dataSourceService', ['$injector',
             fn.apply(this, [dataSource].concat(args))
 
             // Store result on success
-            .then(function immediateRequestSucceeded(response) {
-                results[dataSource] = response.data;
+            .then(function immediateRequestSucceeded(data) {
+                results[dataSource] = data;
                 deferredRequest.resolve();
             },
 
             // Fail on any errors (except "NOT FOUND")
-            function immediateRequestFailed(response) {
+            requestService.createErrorCallback(function immediateRequestFailed(error) {
 
-                // Ignore "NOT FOUND" errors
-                if (response.status === 404)
+                if (error.type === Error.Type.NOT_FOUND)
                     deferredRequest.resolve();
 
                 // Explicitly abort for all other errors
                 else
-                    deferredRequest.reject(response);
+                    deferredRequest.reject(error);
 
-            });
+            }));
 
         });
 
@@ -109,9 +112,9 @@ angular.module('rest').factory('dataSourceService', ['$injector',
         },
 
         // Reject if at least one request fails
-        function requestFailed(response) {
-            deferred.reject(response);
-        });
+        requestService.createErrorCallback(function requestFailed(error) {
+            deferred.reject(error);
+        }));
 
         return deferred.promise;
 

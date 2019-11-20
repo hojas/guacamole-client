@@ -43,6 +43,8 @@ import org.apache.guacamole.net.auth.credentials.GuacamoleCredentialsException;
 import org.apache.guacamole.rest.directory.DirectoryObjectResource;
 import org.apache.guacamole.rest.directory.DirectoryObjectTranslator;
 import org.apache.guacamole.rest.history.APIActivityRecord;
+import org.apache.guacamole.rest.identifier.RelatedObjectSetResource;
+import org.apache.guacamole.rest.permission.APIPermissionSet;
 import org.apache.guacamole.rest.permission.PermissionSetResource;
 
 /**
@@ -153,13 +155,8 @@ public class UserResource
             @Context HttpServletRequest request) throws GuacamoleException {
 
         // Build credentials
-        Credentials credentials = new Credentials();
-        credentials.setUsername(user.getIdentifier());
-        credentials.setPassword(userPasswordUpdate.getOldPassword());
-        credentials.setRequest(request);
-        credentials.setSession(request.getSession(true));
-        credentials.setRemoteAddress(request.getRemoteAddr());
-        credentials.setRemoteHostname(request.getRemoteHost());
+        Credentials credentials = new Credentials(user.getIdentifier(),
+                userPasswordUpdate.getOldPassword(), request);
 
         // Verify that the old password was correct
         try {
@@ -181,7 +178,8 @@ public class UserResource
 
     /**
      * Returns a resource which abstracts operations available on the overall
-     * permissions granted to the User represented by this UserResource.
+     * permissions granted directly to the User represented by this
+     * UserResource.
      *
      * @return
      *     A resource which representing the permissions granted to the User
@@ -190,6 +188,40 @@ public class UserResource
     @Path("permissions")
     public PermissionSetResource getPermissions() {
         return new PermissionSetResource(user);
+    }
+
+    /**
+     * Returns a read-only view of the permissions effectively granted to this
+     * user, including permissions which may be inherited or implied.
+     *
+     * @return
+     *     A read-only view of the permissions effectively granted to this
+     *     user.
+     *
+     * @throws GuacamoleException
+     *     If the effective permissions for this user cannot be retrieved.
+     */
+    @GET
+    @Path("effectivePermissions")
+    public APIPermissionSet getEffectivePermissions() throws GuacamoleException {
+        return new APIPermissionSet(user.getEffectivePermissions());
+    }
+
+    /**
+     * Returns a resource which abstracts operations available on the set of
+     * user groups of which the User represented by this UserResource is a
+     * member.
+     *
+     * @return
+     *     A resource which represents the set of user groups of which the
+     *     User represented by this UserResource is a member.
+     *
+     * @throws GuacamoleException
+     *     If the group membership for this user cannot be retrieved.
+     */
+    @Path("userGroups")
+    public RelatedObjectSetResource getUserGroups() throws GuacamoleException {
+        return new RelatedObjectSetResource(user.getUserGroups());
     }
 
 }

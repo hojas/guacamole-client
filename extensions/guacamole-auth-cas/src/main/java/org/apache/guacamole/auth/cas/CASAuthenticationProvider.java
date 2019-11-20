@@ -22,9 +22,11 @@ package org.apache.guacamole.auth.cas;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import org.apache.guacamole.GuacamoleException;
+import org.apache.guacamole.auth.cas.user.CASAuthenticatedUser;
+import org.apache.guacamole.net.auth.AbstractAuthenticationProvider;
 import org.apache.guacamole.net.auth.AuthenticatedUser;
-import org.apache.guacamole.net.auth.AuthenticationProvider;
 import org.apache.guacamole.net.auth.Credentials;
+import org.apache.guacamole.net.auth.TokenInjectingUserContext;
 import org.apache.guacamole.net.auth.UserContext;
 
 /**
@@ -33,7 +35,7 @@ import org.apache.guacamole.net.auth.UserContext;
  * provided - only authentication. Storage must be provided by some other
  * extension.
  */
-public class CASAuthenticationProvider implements AuthenticationProvider {
+public class CASAuthenticationProvider extends AbstractAuthenticationProvider {
 
     /**
      * Injector which will manage the object graph of this authentication
@@ -64,11 +66,6 @@ public class CASAuthenticationProvider implements AuthenticationProvider {
     }
 
     @Override
-    public Object getResource() throws GuacamoleException {
-        return null;
-    }
-
-    @Override
     public AuthenticatedUser authenticateUser(Credentials credentials)
             throws GuacamoleException {
 
@@ -77,53 +74,17 @@ public class CASAuthenticationProvider implements AuthenticationProvider {
         return authProviderService.authenticateUser(credentials);
 
     }
-
-    @Override
-    public AuthenticatedUser updateAuthenticatedUser(
-            AuthenticatedUser authenticatedUser, Credentials credentials)
-            throws GuacamoleException {
-
-        // No update necessary
-        return authenticatedUser;
-
-    }
-
-    @Override
-    public UserContext getUserContext(AuthenticatedUser authenticatedUser)
-            throws GuacamoleException {
-
-        // No associated data whatsoever
-        return null;
-
-    }
-
-    @Override
-    public UserContext updateUserContext(UserContext context,
-            AuthenticatedUser authenticatedUser, Credentials credentials)
-            throws GuacamoleException {
-
-        // No update necessary
-        return context;
-
-    }
-
+    
     @Override
     public UserContext decorate(UserContext context,
             AuthenticatedUser authenticatedUser, Credentials credentials)
             throws GuacamoleException {
-        return context;
-    }
-
-    @Override
-    public UserContext redecorate(UserContext decorated, UserContext context,
-            AuthenticatedUser authenticatedUser, Credentials credentials)
-            throws GuacamoleException {
-        return context;
-    }
-
-    @Override
-    public void shutdown() {
-        // Do nothing
+        
+        if (!(authenticatedUser instanceof CASAuthenticatedUser))
+            return context;
+        
+        return new TokenInjectingUserContext(context,
+                ((CASAuthenticatedUser) authenticatedUser).getTokens());
     }
 
 }

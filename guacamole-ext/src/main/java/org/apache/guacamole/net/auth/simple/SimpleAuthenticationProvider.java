@@ -19,17 +19,18 @@
 
 package org.apache.guacamole.net.auth.simple;
 
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.guacamole.GuacamoleException;
 import org.apache.guacamole.net.auth.AbstractAuthenticatedUser;
+import org.apache.guacamole.net.auth.AbstractAuthenticationProvider;
 import org.apache.guacamole.net.auth.AuthenticationProvider;
 import org.apache.guacamole.net.auth.AuthenticatedUser;
 import org.apache.guacamole.net.auth.Credentials;
 import org.apache.guacamole.net.auth.UserContext;
 import org.apache.guacamole.protocol.GuacamoleConfiguration;
-import org.apache.guacamole.token.StandardTokens;
-import org.apache.guacamole.token.TokenFilter;
 
 /**
  * Provides means of retrieving a set of named GuacamoleConfigurations for a
@@ -42,7 +43,7 @@ import org.apache.guacamole.token.TokenFilter;
  * the AuthenticationProvider interface of older Guacamole releases.
  */
 public abstract class SimpleAuthenticationProvider
-    implements AuthenticationProvider {
+    extends AbstractAuthenticationProvider {
 
     /**
      * Given an arbitrary credentials object, returns a Map containing all
@@ -130,82 +131,11 @@ public abstract class SimpleAuthenticationProvider
             return credentials;
         }
 
-    }
+        @Override
+        public Set<String> getEffectiveUserGroups() {
+            return Collections.<String>emptySet();
+        }
 
-    /**
-     * Given an arbitrary credentials object, returns a Map containing all
-     * configurations authorized by those credentials, filtering those
-     * configurations using a TokenFilter and the standard credential tokens
-     * (like ${GUAC_USERNAME} and ${GUAC_PASSWORD}). The keys of this Map
-     * are Strings which uniquely identify each configuration.
-     *
-     * @param credentials
-     *     The credentials to use to retrieve authorized configurations.
-     *
-     * @return
-     *     A Map of all configurations authorized by the given credentials, or
-     *     null if the credentials given are not authorized.
-     *
-     * @throws GuacamoleException
-     *     If an error occurs while retrieving configurations.
-     */
-    private Map<String, GuacamoleConfiguration>
-            getFilteredAuthorizedConfigurations(Credentials credentials)
-            throws GuacamoleException {
-
-        // Get configurations
-        Map<String, GuacamoleConfiguration> configs =
-                getAuthorizedConfigurations(credentials);
-
-        // Return as unauthorized if not authorized to retrieve configs
-        if (configs == null)
-            return null;
-
-        // Build credential TokenFilter
-        TokenFilter tokenFilter = new TokenFilter();
-        StandardTokens.addStandardTokens(tokenFilter, credentials);
-
-        // Filter each configuration
-        for (GuacamoleConfiguration config : configs.values())
-            tokenFilter.filterValues(config.getParameters());
-
-        return configs;
-
-    }
-
-    /**
-     * Given a user who has already been authenticated, returns a Map
-     * containing all configurations for which that user is authorized,
-     * filtering those configurations using a TokenFilter and the standard
-     * credential tokens (like ${GUAC_USERNAME} and ${GUAC_PASSWORD}). The keys
-     * of this Map are Strings which uniquely identify each configuration.
-     *
-     * @param authenticatedUser
-     *     The user whose authorized configurations are to be retrieved.
-     *
-     * @return
-     *     A Map of all configurations authorized for use by the given user, or
-     *     null if the user is not authorized to use any configurations.
-     *
-     * @throws GuacamoleException
-     *     If an error occurs while retrieving configurations.
-     */
-    private Map<String, GuacamoleConfiguration>
-            getFilteredAuthorizedConfigurations(AuthenticatedUser authenticatedUser)
-            throws GuacamoleException {
-
-        // Pull cached configurations, if any
-        if (authenticatedUser instanceof SimpleAuthenticatedUser && authenticatedUser.getAuthenticationProvider() == this)
-            return ((SimpleAuthenticatedUser) authenticatedUser).getAuthorizedConfigurations();
-
-        // Otherwise, pull using credentials
-        return getFilteredAuthorizedConfigurations(authenticatedUser.getCredentials());
-
-    }
-
-    @Override
-    public Object getResource() throws GuacamoleException {
-        return null;
     }
 
     @Override
@@ -214,7 +144,7 @@ public abstract class SimpleAuthenticationProvider
 
         // Get configurations
         Map<String, GuacamoleConfiguration> configs =
-                getFilteredAuthorizedConfigurations(credentials);
+                getAuthorizedConfigurations(credentials);
 
         // Return as unauthorized if not authorized to retrieve configs
         if (configs == null)
@@ -230,56 +160,15 @@ public abstract class SimpleAuthenticationProvider
 
         // Get configurations
         Map<String, GuacamoleConfiguration> configs =
-                getFilteredAuthorizedConfigurations(authenticatedUser);
+                getAuthorizedConfigurations(authenticatedUser.getCredentials());
 
         // Return as unauthorized if not authorized to retrieve configs
         if (configs == null)
             return null;
 
         // Return user context restricted to authorized configs
-        return new SimpleUserContext(this, authenticatedUser.getIdentifier(), configs);
+        return new SimpleUserContext(this, authenticatedUser.getIdentifier(), configs, true);
 
-    }
-
-    @Override
-    public AuthenticatedUser updateAuthenticatedUser(AuthenticatedUser authenticatedUser,
-            Credentials credentials) throws GuacamoleException {
-
-        // Simply return the given user, updating nothing
-        return authenticatedUser;
-
-    }
-
-    @Override
-    public UserContext updateUserContext(UserContext context,
-        AuthenticatedUser authorizedUser, Credentials credentials)
-            throws GuacamoleException {
-
-        // Simply return the given context, updating nothing
-        return context;
-        
-    }
-
-    @Override
-    public UserContext decorate(UserContext context,
-            AuthenticatedUser authenticatedUser, Credentials credentials)
-            throws GuacamoleException {
-
-        // Simply return the given context, decorating nothing
-        return context;
-
-    }
-
-    @Override
-    public UserContext redecorate(UserContext decorated, UserContext context,
-            AuthenticatedUser authenticatedUser, Credentials credentials)
-            throws GuacamoleException {
-        return decorate(context, authenticatedUser, credentials);
-    }
-
-    @Override
-    public void shutdown() {
-        // Do nothing
     }
 
 }

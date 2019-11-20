@@ -24,7 +24,7 @@ angular.module('rest').factory('schemaService', ['$injector',
         function schemaService($injector) {
 
     // Required services
-    var $http                 = $injector.get('$http');
+    var requestService        = $injector.get('requestService');
     var authenticationService = $injector.get('authenticationService');
     var cacheService          = $injector.get('cacheService');
 
@@ -55,10 +55,44 @@ angular.module('rest').factory('schemaService', ['$injector',
         };
 
         // Retrieve available user attributes
-        return $http({
+        return requestService({
             cache   : cacheService.schema,
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/userAttributes',
+            params  : httpParameters
+        });
+
+    };
+
+    /**
+     * Makes a request to the REST API to get the list of available attributes
+     * for user group objects, returning a promise that provides an array of
+     * @link{Form} objects if successful. Each element of the array describes
+     * a logical grouping of possible attributes.
+     *
+     * @param {String} dataSource
+     *     The unique identifier of the data source containing the user groups
+     *     whose available attributes are to be retrieved. This identifier
+     *     corresponds to an AuthenticationProvider within the Guacamole web
+     *     application.
+     *
+     * @returns {Promise.<Form[]>}
+     *     A promise which will resolve with an array of @link{Form}
+     *     objects, where each @link{Form} describes a logical grouping of
+     *     possible attributes.
+     */
+    service.getUserGroupAttributes = function getUserGroupAttributes(dataSource) {
+
+        // Build HTTP parameters set
+        var httpParameters = {
+            token : authenticationService.getCurrentToken()
+        };
+
+        // Retrieve available user group attributes
+        return requestService({
+            cache   : cacheService.schema,
+            method  : 'GET',
+            url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/userGroupAttributes',
             params  : httpParameters
         });
 
@@ -89,7 +123,7 @@ angular.module('rest').factory('schemaService', ['$injector',
         };
 
         // Retrieve available connection attributes
-        return $http({
+        return requestService({
             cache   : cacheService.schema,
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/connectionAttributes',
@@ -123,7 +157,7 @@ angular.module('rest').factory('schemaService', ['$injector',
         };
 
         // Retrieve available sharing profile attributes
-        return $http({
+        return requestService({
             cache   : cacheService.schema,
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/sharingProfileAttributes',
@@ -157,7 +191,7 @@ angular.module('rest').factory('schemaService', ['$injector',
         };
 
         // Retrieve available connection group attributes
-        return $http({
+        return requestService({
             cache   : cacheService.schema,
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/connectionGroupAttributes',
@@ -188,7 +222,7 @@ angular.module('rest').factory('schemaService', ['$injector',
         };
 
         // Retrieve available protocols
-        return $http({
+        return requestService({
             cache   : cacheService.schema,
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/schema/protocols',

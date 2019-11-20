@@ -19,9 +19,8 @@
 
 package org.apache.guacamole.auth.jdbc.user;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import javax.servlet.http.HttpServletRequest;
+import java.util.Collections;
+import java.util.Set;
 import org.apache.guacamole.net.auth.AuthenticatedUser;
 import org.apache.guacamole.net.auth.AuthenticationProvider;
 import org.apache.guacamole.net.auth.Credentials;
@@ -47,58 +46,11 @@ public abstract class RemoteAuthenticatedUser implements AuthenticatedUser {
     private final String remoteHost;
 
     /**
-     * Regular expression which matches any IPv4 address.
+     * The identifiers of any groups of which this user is a member, including
+     * groups inherited through membership in other groups.
      */
-    private static final String IPV4_ADDRESS_REGEX = "([0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3})";
+    private final Set<String> effectiveGroups;
 
-    /**
-     * Regular expression which matches any IPv6 address.
-     */
-    private static final String IPV6_ADDRESS_REGEX = "([0-9a-fA-F]*(:[0-9a-fA-F]*){0,7})";
-
-    /**
-     * Regular expression which matches any IP address, regardless of version.
-     */
-    private static final String IP_ADDRESS_REGEX = "(" + IPV4_ADDRESS_REGEX + "|" + IPV6_ADDRESS_REGEX + ")";
-
-    /**
-     * Pattern which matches valid values of the de-facto standard
-     * "X-Forwarded-For" header.
-     */
-    private static final Pattern X_FORWARDED_FOR = Pattern.compile("^" + IP_ADDRESS_REGEX + "(, " + IP_ADDRESS_REGEX + ")*$");
-
-    /**
-     * Derives the remote host of the authenticating user from the given
-     * credentials object. The remote host is derived from X-Forwarded-For
-     * in addition to the actual source IP of the request, and thus is not
-     * trusted. The derived remote host is really only useful for logging,
-     * unless the server is configured such that X-Forwarded-For is guaranteed
-     * to be trustworthy.
-     *
-     * @param credentials
-     *     The credentials to derive the remote host from.
-     *
-     * @return
-     *     The remote host from which the user with the given credentials is
-     *     authenticating.
-     */
-    private static String getRemoteHost(Credentials credentials) {
-
-        HttpServletRequest request = credentials.getRequest();
-
-        // Use X-Forwarded-For, if present and valid
-        String header = request.getHeader("X-Forwarded-For");
-        if (header != null) {
-            Matcher matcher = X_FORWARDED_FOR.matcher(header);
-            if (matcher.matches())
-                return matcher.group(1);
-        }
-
-        // If header absent or invalid, just use source IP
-        return request.getRemoteAddr();
-
-    }
-    
     /**
      * Creates a new RemoteAuthenticatedUser, deriving the associated remote
      * host from the given credentials.
@@ -106,14 +58,19 @@ public abstract class RemoteAuthenticatedUser implements AuthenticatedUser {
      * @param authenticationProvider
      *     The AuthenticationProvider that has authenticated the given user.
      *
-     * @param credentials 
+     * @param credentials
      *     The credentials given by the user when they authenticated.
+     *
+     * @param effectiveGroups
+     *     The identifiers of any groups of which this user is a member,
+     *     including groups inherited through membership in other groups.
      */
     public RemoteAuthenticatedUser(AuthenticationProvider authenticationProvider,
-            Credentials credentials) {
+            Credentials credentials, Set<String> effectiveGroups) {
         this.authenticationProvider = authenticationProvider;
         this.credentials = credentials;
-        this.remoteHost = getRemoteHost(credentials);
+        this.remoteHost = credentials.getRemoteAddress();
+        this.effectiveGroups = Collections.unmodifiableSet(effectiveGroups);
     }
 
     @Override
@@ -129,6 +86,11 @@ public abstract class RemoteAuthenticatedUser implements AuthenticatedUser {
      */
     public String getRemoteHost() {
         return remoteHost;
+    }
+
+    @Override
+    public Set<String> getEffectiveUserGroups() {
+        return effectiveGroups;
     }
 
     @Override

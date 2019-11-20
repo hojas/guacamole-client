@@ -26,6 +26,9 @@ angular.module('index').config(['$routeProvider', '$locationProvider',
     // Disable HTML5 mode (use # for routing)
     $locationProvider.html5Mode(false);
 
+    // Clear hash prefix to keep /#/thing/bat URL style
+    $locationProvider.hashPrefix('');
+
     /**
      * Attempts to re-authenticate with the Guacamole server, sending any
      * query parameters in the URL, along with the current auth token, and
@@ -99,6 +102,10 @@ angular.module('index').config(['$routeProvider', '$locationProvider',
                 route.resolve();
             });
 
+        })
+
+        ['catch'](function tokenUpdateFailed() {
+            route.reject();
         });
 
         // Return promise that will resolve only if the requested page is the
@@ -161,6 +168,15 @@ angular.module('index').config(['$routeProvider', '$locationProvider',
             bodyClassName : 'manage',
             templateUrl   : 'app/manage/templates/manageUser.html',
             controller    : 'manageUserController',
+            resolve       : { updateCurrentToken: updateCurrentToken }
+        })
+
+        // User group editor
+        .when('/manage/:dataSource/userGroups/:id?', {
+            title         : 'APP.NAME',
+            bodyClassName : 'manage',
+            templateUrl   : 'app/manage/templates/manageUserGroup.html',
+            controller    : 'manageUserGroupController',
             resolve       : { updateCurrentToken: updateCurrentToken }
         })
 

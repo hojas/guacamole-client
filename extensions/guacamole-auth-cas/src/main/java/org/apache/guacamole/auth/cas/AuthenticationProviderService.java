@@ -22,17 +22,17 @@ package org.apache.guacamole.auth.cas;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import java.util.Arrays;
+import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
-import org.apache.guacamole.environment.Environment;
 import org.apache.guacamole.form.Field;
 import org.apache.guacamole.GuacamoleException;
 import org.apache.guacamole.net.auth.Credentials;
 import org.apache.guacamole.net.auth.credentials.CredentialsInfo;
-import org.apache.guacamole.net.auth.credentials.GuacamoleInsufficientCredentialsException;
+import org.apache.guacamole.net.auth.credentials.GuacamoleInvalidCredentialsException;
 import org.apache.guacamole.auth.cas.conf.ConfigurationService;
 import org.apache.guacamole.auth.cas.form.CASTicketField;
 import org.apache.guacamole.auth.cas.ticket.TicketValidationService;
-import org.apache.guacamole.auth.cas.user.AuthenticatedUser;
+import org.apache.guacamole.auth.cas.user.CASAuthenticatedUser;
 
 /**
  * Service providing convenience functions for the CAS AuthenticationProvider
@@ -47,12 +47,6 @@ public class AuthenticationProviderService {
     private ConfigurationService confService;
 
     /**
-     * The Guacamole server environment.
-     */
-    @Inject
-    private Environment environment;
-
-    /**
      * Service for validating received ID tickets.
      */
     @Inject
@@ -62,7 +56,7 @@ public class AuthenticationProviderService {
      * Provider for AuthenticatedUser objects.
      */
     @Inject
-    private Provider<AuthenticatedUser> authenticatedUserProvider;
+    private Provider<CASAuthenticatedUser> authenticatedUserProvider;
 
     /**
      * Returns an AuthenticatedUser representing the user authenticated by the
@@ -72,14 +66,14 @@ public class AuthenticationProviderService {
      *     The credentials to use for authentication.
      *
      * @return
-     *     An AuthenticatedUser representing the user authenticated by the
+     *     A CASAuthenticatedUser representing the user authenticated by the
      *     given credentials.
      *
      * @throws GuacamoleException
      *     If an error occurs while authenticating the user, or if access is
      *     denied.
      */
-    public AuthenticatedUser authenticateUser(Credentials credentials)
+    public CASAuthenticatedUser authenticateUser(Credentials credentials)
             throws GuacamoleException {
 
         // Pull CAS ticket from request if present
@@ -87,18 +81,18 @@ public class AuthenticationProviderService {
         if (request != null) {
             String ticket = request.getParameter(CASTicketField.PARAMETER_NAME);
             if (ticket != null) {
-                String username = ticketService.validateTicket(ticket, credentials);
+                Map<String, String> tokens = ticketService.validateTicket(ticket, credentials);
+                String username = credentials.getUsername();
                 if (username != null) {
-                    AuthenticatedUser authenticatedUser = authenticatedUserProvider.get();
-                    authenticatedUser.init(username, credentials);
+                    CASAuthenticatedUser authenticatedUser = authenticatedUserProvider.get();
+                    authenticatedUser.init(username, credentials, tokens);
                     return authenticatedUser;
                 }
             }
         }
 
         // Request CAS ticket
-        throw new GuacamoleInsufficientCredentialsException(
-            "LOGIN.INFO_CAS_REDIRECT_PENDING",
+        throw new GuacamoleInvalidCredentialsException("Invalid login.",
             new CredentialsInfo(Arrays.asList(new Field[] {
 
                 // CAS-specific ticket (will automatically redirect the user

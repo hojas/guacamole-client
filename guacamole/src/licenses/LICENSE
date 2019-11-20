@@ -214,14 +214,14 @@ terms and conditions of the following licenses.
 AngularJS (https://angularjs.org/)
 ----------------------------------
 
-    Version: 1.3.16
+    Version: 1.6.9
     From: 'Google Inc.' (http://www.google.com/)
     License(s):
-        MIT (bundled/angular-1.3.16/LICENSE)
+        MIT (bundled/angular-1.6.9/LICENSE)
 
 The MIT License
 
-Copyright (c) 2010-2016 Google, Inc. http://angularjs.org
+Copyright (c) 2010-2018 Google, Inc. http://angularjs.org
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -276,14 +276,14 @@ SOFTWARE.
 angular-translate (https://angular-translate.github.io/)
 --------------------------------------------------------
 
-    Version: 2.8.0
+    Version: 2.16.0
     From: 'Pascal Precht' (https://github.com/PascalPrecht)
     License(s):
-        MIT (bundled/angular-translate-2.8.0/LICENSE)
+        MIT (bundled/angular-translate-2.16.0/LICENSE)
 
 The MIT License (MIT)
 
-Copyright (c) <2014> <pascal.precht@gmail.com>
+Copyright (c) 2013-2017 The angular-translate team and Pascal Precht
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -390,6 +390,15 @@ Carlito (http://code.google.com/p/chromium/issues/detail?id=280557)
         SIL Open Font (bundled/carlito/LICENSE)
 
 
+datalist-polyfill (https://github.com/mfranzke/datalist-polyfill)
+-----------------------------------------------------------------
+
+    Version: 1.14.0
+    From: 'Maximilian Franzke' (https://github.com/mfranzke)
+    License(s):
+        MIT (bundled/datalist-polyfill-1.14.0/LICENSE)
+
+
 FileSaver.js (https://github.com/eligrey/FileSaver.js)
 ------------------------------------------------------
 
@@ -477,13 +486,21 @@ Jettison (https://github.com/jettison-json/jettison)
 jQuery (http://jquery.com/)
 ---------------------------
 
-    Version: 2.1.3
-    From: 'jQuery Foundation' (http://jquery.com/)
+    Version: 3.3.1
+    From: 'JS Foundation' (https://js.foundation/)
     License(s):
-        MIT (bundled/jquery-2.1.3/MIT-LICENSE.txt)
+        MIT (bundled/jquery-3.3.1/LICENSE.txt)
 
-Copyright 2014 jQuery Foundation and other contributors
-http://jquery.com/
+Copyright JS Foundation and other contributors, https://js.foundation/
+
+This software consists of voluntary contributions made by many
+individuals. For exact contribution history, see the revision history
+available at https://github.com/jquery/jquery
+
+The following license applies to all parts of this software except as
+documented below:
+
+====
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -503,6 +520,22 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+====
+
+All files located in the node_modules and external directories are
+externally maintained libraries used by this software which have their
+own licenses; we recommend you read them, as their terms may differ from
+the terms above.
+
+
+Guava: Google Core Libraries for Java (https://github.com/google/guava)
+-----------------------------------------------------------------------
+
+    Version: 27.0.1-jre
+    From: 'Google Inc.' (http://www.google.com/)
+    License(s):
+        Apache v2.0 (bundled/guava-27.0.1-jre/COPYING)
 
 
 JSR-250 Reference Implementation
@@ -527,14 +560,24 @@ JSR-330 / Dependency Injection for Java (http://code.google.com/p/atinject/)
 Lodash (https://lodash.com/)
 ----------------------------
 
-    Version: 2.4.1
-    From: 'The Dojo Foundation' (http://dojofoundation.org/)
+    Version: 4.17.10
+    From: 'JS Foundation' (https://js.foundation/)
     License(s):
-        MIT (bundled/lodash-2.4.1/LICENSE.txt)
+        MIT (bundled/lodash-4.17.10/LICENSE)
 
-Copyright 2012-2013 The Dojo Foundation <http://dojofoundation.org/>
-Based on Underscore.js 1.5.2, copyright 2009-2013 Jeremy Ashkenas,
+Copyright JS Foundation and other contributors <https://js.foundation/>
+
+Based on Underscore.js, copyright Jeremy Ashkenas,
 DocumentCloud and Investigative Reporters & Editors <http://underscorejs.org/>
+
+This software consists of voluntary contributions made by many
+individuals. For exact contribution history, see the revision history
+available at https://github.com/lodash/lodash
+
+The following license applies to all parts of this software except as
+documented below:
+
+====
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -554,6 +597,51 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+====
+
+Copyright and related rights for sample code are waived via CC0. Sample
+code is defined as all source code displayed within the prose of the
+documentation.
+
+CC0: http://creativecommons.org/publicdomain/zero/1.0/
+
+====
+
+Files located in the node_modules and vendor directories are externally
+maintained libraries used by this software which have their own
+licenses; we recommend you read them, as their terms may differ from the
+terms above.
+
+
+JSTZ (https://pellepim.bitbucket.io/jstz/)
+------------------------------------------
+
+    Version: 1.0.10
+    From: 'Jon Nylander' (https://pellepim.bitbucket.io/jstz/)
+    License(s):
+        MIT (bundled/jstz-1.0.10/LICENSE)
+
+Copyright (c) 2012 Jon Nylander, project maintained at 
+https://bitbucket.org/pellepim/jstimezonedetect
+
+Permission is hereby granted, free of charge, to any person obtaining a copy 
+of this software and associated documentation files (the "Software"), to deal 
+in the Software without restriction, including without limitation the rights to 
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+of the Software, and to permit persons to whom the Software is furnished to 
+do so, subject to the following conditions: 
+
+The above copyright notice and this permission notice shall be included in 
+all copies or substantial portions of the Software. 
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN 
+THE SOFTWARE.
 
 
 Logback (http://logback.qos.ch/)
@@ -607,6 +695,37 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+
+Pickr (https://simonwep.github.io/pickr/)
+-----------------------------------------
+
+    Version: 1.2.6
+    From: 'Simon Reinisch' (https://github.com/Simonwep/)
+    License(s):
+        MIT (bundled/pickr-1.2.6/LICENSE)
+
+MIT License
+
+Copyright (c) 2019 Simon Reinisch
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 
 Simple Logging Facade for Java (http://slf4j.org/)

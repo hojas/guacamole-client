@@ -45,6 +45,17 @@ public class DelegatingUserContext implements UserContext {
         this.userContext = userContext;
     }
 
+    /**
+     * Returns the underlying UserContext wrapped by this
+     * DelegatingUserContext.
+     *
+     * @return
+     *     The UserContext wrapped by this DelegatingUserContext.
+     */
+    protected UserContext getDelegateUserContext() {
+        return userContext;
+    }
+
     @Override
     public User self() {
         return userContext.self();
@@ -63,6 +74,11 @@ public class DelegatingUserContext implements UserContext {
     @Override
     public Directory<User> getUserDirectory() throws GuacamoleException {
         return userContext.getUserDirectory();
+    }
+
+    @Override
+    public Directory<UserGroup> getUserGroupDirectory() throws GuacamoleException {
+        return userContext.getUserGroupDirectory();
     }
 
     @Override
@@ -109,6 +125,11 @@ public class DelegatingUserContext implements UserContext {
     @Override
     public Collection<Form> getUserAttributes() {
         return userContext.getUserAttributes();
+    }
+
+    @Override
+    public Collection<Form> getUserGroupAttributes() {
+        return userContext.getUserGroupAttributes();
     }
 
     @Override

@@ -24,11 +24,42 @@ angular.module('rest').factory('activeConnectionService', ['$injector',
         function activeConnectionService($injector) {
 
     // Required services
-    var $http                 = $injector.get('$http');
-    var $q                    = $injector.get('$q');
+    var requestService        = $injector.get('requestService');
     var authenticationService = $injector.get('authenticationService');
 
     var service = {};
+
+    /**
+     * Makes a request to the REST API to get a single active connection,
+     * returning a promise that provides the corresponding
+     * @link{ActiveConnection} if successful.
+     *
+     * @param {String} dataSource
+     *     The identifier of the data source to retrieve the active connection
+     *     from.
+     *
+     * @param {String} id
+     *     The identifier of the active connection.
+     *
+     * @returns {Promise.<ActiveConnection>}
+     *     A promise which will resolve with a @link{ActiveConnection} upon
+     *     success.
+     */
+    service.getActiveConnection = function getActiveConnection(dataSource, id) {
+
+        // Build HTTP parameters set
+        var httpParameters = {
+            token : authenticationService.getCurrentToken()
+        };
+
+        // Retrieve active connection
+        return requestService({
+            method  : 'GET',
+            url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/activeConnections/' + encodeURIComponent(id),
+            params  : httpParameters
+        });
+
+    };
 
     /**
      * Makes a request to the REST API to get the list of active tunnels,
@@ -58,73 +89,11 @@ angular.module('rest').factory('activeConnectionService', ['$injector',
             httpParameters.permission = permissionTypes;
 
         // Retrieve tunnels
-        return $http({
+        return requestService({
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/activeConnections',
             params  : httpParameters
         });
-
-    };
-
-    /**
-     * Returns a promise which resolves with all active connections accessible
-     * by the current user, as a map of @link{ActiveConnection} maps, as would
-     * be returned by getActiveConnections(), grouped by the identifier of
-     * their corresponding data source. All given data sources are queried. If
-     * an error occurs while retrieving any ActiveConnection map, the promise
-     * will be rejected.
-     *
-     * @param {String[]} dataSources
-     *     The unique identifier of the data sources containing the active
-     *     connections to be retrieved. These identifiers correspond to
-     *     AuthenticationProviders within the Guacamole web application.
-     *
-     * @param {String[]} [permissionTypes]
-     *     The set of permissions to filter with. A user must have one or more
-     *     of these permissions for an active connection to appear in the
-     *     result.  If null, no filtering will be performed. Valid values are
-     *     listed within PermissionSet.ObjectType.
-     *
-     * @returns {Promise.<Object.<String, Object.<String, ActiveConnection>>>}
-     *     A promise which resolves with all active connections available to
-     *     the current user, as a map of ActiveConnection maps, as would be
-     *     returned by getActiveConnections(), grouped by the identifier of
-     *     their corresponding data source.
-     */
-    service.getAllActiveConnections = function getAllActiveConnections(dataSources, permissionTypes) {
-
-        var deferred = $q.defer();
-
-        var activeConnectionRequests = [];
-        var activeConnectionMaps = {};
-
-        // Retrieve all active connections from all data sources
-        angular.forEach(dataSources, function retrieveActiveConnections(dataSource) {
-            activeConnectionRequests.push(
-                service.getActiveConnections(dataSource, permissionTypes)
-                .success(function activeConnectionsRetrieved(activeConnections) {
-                    activeConnectionMaps[dataSource] = activeConnections;
-                })
-            );
-        });
-
-        // Resolve when all requests are completed
-        $q.all(activeConnectionRequests)
-        .then(
-
-            // All requests completed successfully
-            function allActiveConnectionsRetrieved() {
-                deferred.resolve(userArrays);
-            },
-
-            // At least one request failed
-            function activeConnectionRetrievalFailed(e) {
-                deferred.reject(e);
-            }
-
-        );
-
-        return deferred.promise;
 
     };
 
@@ -157,7 +126,7 @@ angular.module('rest').factory('activeConnectionService', ['$injector',
         });
 
         // Perform active connection deletion via PATCH
-        return $http({
+        return requestService({
             method  : 'PATCH',
             url     : 'api/session/data/' + encodeURIComponent(dataSource) + '/activeConnections',
             params  : httpParameters,
@@ -191,7 +160,7 @@ angular.module('rest').factory('activeConnectionService', ['$injector',
         };
 
         // Generate sharing credentials
-        return $http({
+        return requestService({
             method  : 'GET',
             url     : 'api/session/data/' + encodeURIComponent(dataSource)
                         + '/activeConnections/' + encodeURIComponent(id)

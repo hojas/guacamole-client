@@ -19,6 +19,7 @@
 
 package org.apache.guacamole.net.auth;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 import org.apache.guacamole.GuacamoleException;
@@ -37,6 +38,25 @@ public class DelegatingConnectionGroup implements ConnectionGroup {
     private final ConnectionGroup connectionGroup;
 
     /**
+     * The tokens which should apply strictly to the next call to
+     * {@link #connect(org.apache.guacamole.protocol.GuacamoleClientInformation)}.
+     * This storage is intended as a temporary bridge allowing the old version
+     * of connect() to be overridden while still resulting in the same behavior
+     * as older versions of DelegatingConnectionGroup. <strong>This storage
+     * should be removed once support for the old, deprecated connect() is
+     * removed.</strong>
+     */
+    private final ThreadLocal<Map<String, String>> currentTokens =
+            new ThreadLocal<Map<String, String>>() {
+
+        @Override
+        protected Map<String, String> initialValue() {
+            return Collections.emptyMap();
+        }
+
+    };
+
+    /**
      * Wraps the given ConnectionGroup such that all function calls against this
      * DelegatingConnectionGroup will be delegated to it.
      *
@@ -45,6 +65,17 @@ public class DelegatingConnectionGroup implements ConnectionGroup {
      */
     public DelegatingConnectionGroup(ConnectionGroup connectionGroup) {
         this.connectionGroup = connectionGroup;
+    }
+
+    /**
+     * Returns the underlying ConnectionGroup wrapped by this
+     * DelegatingConnectionGroup.
+     *
+     * @return
+     *     The ConnectionGroup wrapped by this DelegatingConnectionGroup.
+     */
+    protected ConnectionGroup getDelegateConnectionGroup() {
+        return connectionGroup;
     }
 
     @Override
@@ -108,8 +139,26 @@ public class DelegatingConnectionGroup implements ConnectionGroup {
     }
 
     @Override
-    public GuacamoleTunnel connect(GuacamoleClientInformation info) throws GuacamoleException {
-        return connectionGroup.connect(info);
+    @Deprecated
+    public GuacamoleTunnel connect(GuacamoleClientInformation info)
+            throws GuacamoleException {
+        return connectionGroup.connect(info, currentTokens.get());
+    }
+
+    @Override
+    public GuacamoleTunnel connect(GuacamoleClientInformation info,
+            Map<String, String> tokens) throws GuacamoleException {
+
+        // Make received tokens available within the legacy connect() strictly
+        // in context of the current connect() call
+        try {
+            currentTokens.set(tokens);
+            return connect(info);
+        }
+        finally {
+            currentTokens.remove();
+        }
+
     }
 
     @Override

@@ -48,6 +48,16 @@ public class DelegatingUser implements User {
         this.user = user;
     }
 
+    /**
+     * Returns the underlying User wrapped by this DelegatingUser.
+     *
+     * @return
+     *     The User wrapped by this DelegatingUser.
+     */
+    protected User getDelegateUser() {
+        return user;
+    }
+
     @Override
     public String getIdentifier() {
         return user.getIdentifier();
@@ -122,6 +132,22 @@ public class DelegatingUser implements User {
     @Override
     public ObjectPermissionSet getUserPermissions() throws GuacamoleException {
         return user.getUserPermissions();
+    }
+
+    @Override
+    public ObjectPermissionSet getUserGroupPermissions()
+            throws GuacamoleException {
+        return user.getUserGroupPermissions();
+    }
+
+    @Override
+    public RelatedObjectSet getUserGroups() throws GuacamoleException {
+        return user.getUserGroups();
+    }
+
+    @Override
+    public Permissions getEffectivePermissions() throws GuacamoleException {
+        return user.getEffectivePermissions();
     }
 
 }

@@ -36,6 +36,8 @@ import org.apache.guacamole.auth.jdbc.connection.ModeledConnection;
 import org.apache.guacamole.auth.jdbc.connectiongroup.ModeledConnectionGroup;
 import org.apache.guacamole.auth.jdbc.sharingprofile.ModeledSharingProfile;
 import org.apache.guacamole.auth.jdbc.sharingprofile.SharingProfileDirectory;
+import org.apache.guacamole.auth.jdbc.usergroup.ModeledUserGroup;
+import org.apache.guacamole.auth.jdbc.usergroup.UserGroupDirectory;
 import org.apache.guacamole.form.Form;
 import org.apache.guacamole.net.auth.ActiveConnection;
 import org.apache.guacamole.net.auth.ActivityRecord;
@@ -46,6 +48,7 @@ import org.apache.guacamole.net.auth.ConnectionGroup;
 import org.apache.guacamole.net.auth.Directory;
 import org.apache.guacamole.net.auth.SharingProfile;
 import org.apache.guacamole.net.auth.User;
+import org.apache.guacamole.net.auth.UserGroup;
 
 /**
  * UserContext implementation which is driven by an arbitrary, underlying
@@ -60,6 +63,13 @@ public class ModeledUserContext extends RestrictedObject
      */
     @Inject
     private UserDirectory userDirectory;
+
+    /**
+     * User group directory restricted by the permissions of the user associated
+     * with this context.
+     */
+    @Inject
+    private UserGroupDirectory userGroupDirectory;
  
     /**
      * Connection directory restricted by the permissions of the user
@@ -125,6 +135,7 @@ public class ModeledUserContext extends RestrictedObject
         
         // Init directories
         userDirectory.init(currentUser);
+        userGroupDirectory.init(currentUser);
         connectionDirectory.init(currentUser);
         connectionGroupDirectory.init(currentUser);
         sharingProfileDirectory.init(currentUser);
@@ -134,7 +145,7 @@ public class ModeledUserContext extends RestrictedObject
         userRecord = new ActivityRecordModel();
         userRecord.setUsername(currentUser.getIdentifier());
         userRecord.setStartDate(new Date());
-        userRecord.setRemoteHost(currentUser.getCredentials().getRemoteHostname());
+        userRecord.setRemoteHost(currentUser.getCredentials().getRemoteAddress());
 
         // Insert record representing login
         userRecordMapper.insert(userRecord);
@@ -159,6 +170,11 @@ public class ModeledUserContext extends RestrictedObject
     @Override
     public Directory<User> getUserDirectory() throws GuacamoleException {
         return userDirectory;
+    }
+
+    @Override
+    public Directory<UserGroup> getUserGroupDirectory() throws GuacamoleException {
+        return userGroupDirectory;
     }
 
     @Override
@@ -212,6 +228,11 @@ public class ModeledUserContext extends RestrictedObject
     @Override
     public Collection<Form> getUserAttributes() {
         return ModeledUser.ATTRIBUTES;
+    }
+
+    @Override
+    public Collection<Form> getUserGroupAttributes() {
+        return ModeledUserGroup.ATTRIBUTES;
     }
 
     @Override
