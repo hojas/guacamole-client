@@ -1,5 +1,5 @@
 {
-  "name": "apache-guacamole-client",
+  "name": "guacamole-client",
   "version": "1.0.0",
   "description": "guacamole-client",
   "main": "dist/guacamole-client.js",
