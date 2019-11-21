@@ -1,0 +1,32 @@
+{
+  "name": "apache-guacamole-client",
+  "version": "1.0.0",
+  "description": "guacamole-client",
+  "main": "dist/guacamole-client.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "compose": "node composeFiles.js",
+    "build": "webpack",
+    "p": "webpack && npm publish",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hojas/guacamole-client.git"
+  },
+  "author": "hojas",
+  "license": "Apache-2.0",
+  "files": [
+    "guacamole-client.js"
+  ],
+  "bugs": {
+    "url": "https://github.com/hojas/guacamole-client/issues"
+  },
+  "homepage": "https://github.com/hojas/guacamole-client#readme",
+  "devDependencies": {
+    "webpack": "^4.41.2",
+    "webpack-cli": "^3.3.10"
+  }
+}
