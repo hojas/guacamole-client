@@ -1,0 +1,24 @@
+{
+  "name": "guacamole-client",
+  "version": "1.1.0",
+  "packageManager": "pnpm@6.32.3",
+  "files": ["dist"],
+  "main": "./dist/guacamole-client.umd.js",
+  "module": "./dist/guacamole-client.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/guacamole-client.es.js",
+      "require": "./dist/guacamole-client.umd.js"
+    }
+  },
+  "scripts": {
+    "compose": "node compose-files.js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "p": "npm publish"
+  },
+  "devDependencies": {
+    "vite": "^2.8.6"
+  }
+}
