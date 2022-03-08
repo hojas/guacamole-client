@@ -1,9 +1,11 @@
 lockfileVersion: 5.3
 
 specifiers:
+  guacamole-client: ^1.1.0
   vite: ^2.8.6
 
 devDependencies:
+  guacamole-client: 1.1.0
   vite: 2.8.6
 
 packages:
@@ -226,6 +228,10 @@ packages:
 
   /function-bind/1.1.1:
     resolution: {integrity: sha512-yIovAzMX49sF8Yl58fSCWJ5svSLuaibPxXQJFLmBObTuCr0Mf1KiPopGM9NiFjiYBCbfaa2Fh6breQ6ANVTI0A==}
+    dev: true
+
+  /guacamole-client/1.1.0:
+    resolution: {integrity: sha512-38LtyRXBA6k8Vyca2nxdxTB2nDZ644cuBvCeXpoWJwp9+LFET64MzXVUhMvJrz0VdASj7u5yQYzCmWtDeVc96g==}
     dev: true
 
   /has/1.0.3:

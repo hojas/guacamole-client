@@ -2,6 +2,7 @@ const path = require('path')
 const { defineConfig } = require('vite')
 
 module.exports = defineConfig({
+  base: './',
   build: {
     lib: {
       entry: path.resolve(__dirname, './guacamole-client.js'),
