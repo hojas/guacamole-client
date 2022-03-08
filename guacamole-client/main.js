@@ -1,0 +1,14 @@
+import Guacamole from 'guacamole-client'
+
+const elm = document.getElementById('display')
+const tunnelUrl = 'wss://hzvm.shiyanlou.com/websocket-tunnel'
+const token = 'eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJndWFjLmd1YWNkX2hvc3QiOiIxNzIuMTYuNTYuMTc6NDgyMiIsImd1YWMuaG9zdG5hbWUiOiIxOTIuMTY4LjQyLjUiLCJndWFjLnBhc3N3b3JkIjoiMTIzNDU2IiwiZ3VhYy5wb3J0IjoiNTkwMSIsImd1YWMucHJvdG9jb2wiOiJ2bmMiLCJndWFjLnVzZXJfaWQiOiIxNzM1ODE4In0.JvfU62pa1pzI8U146bc1rRqjil_VyC2pTGQvEjrvjD8rHVoG5A1QvwUnqyg2_Etu2hd9lwejkdKz8gbHXhJYBQ'
+
+const tunnel = new Guacamole.ChainedTunnel(new Guacamole.WebSocketTunnel(
+  tunnelUrl))
+const client = new Guacamole.Client(tunnel)
+const optimalDpi = (window.devicePixelRatio || 1) * 96
+const connectArgs = `token=${token}&GUAC_DPI=${optimalDpi}`
+
+elm.appendChild(client.getDisplay().getElement())
+client.connect(connectArgs)
