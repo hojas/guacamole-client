@@ -1,0 +1,31 @@
+{
+  "name": "guacamole-client",
+  "version": "1.4.0-rc",
+  "keywords": ["guacamole", "guacamole-client", "guacamole-common-js"],
+  "description": "guacamole-client is the superproject containing all Maven-based projects that make Apache Guacamole, an HTML5 web application that provides access to your desktop using remote desktop protocols.",
+  "packageManager": "pnpm@6.32.3",
+  "files": ["dist"],
+  "main": "./dist/guacamole-client.umd.js",
+  "module": "./dist/guacamole-client.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/guacamole-client.es.js",
+      "require": "./dist/guacamole-client.umd.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hojas/guacamole-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/hojas/guacamole-client/issues"
+  },
+  "homepage": "https://github.com/hojas/guacamole-client#readme",
+  "scripts": {
+    "compose": "node compose-files.js",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^2.8.6"
+  }
+}

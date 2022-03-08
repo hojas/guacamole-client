@@ -1,2 +1,8 @@
 *~
 target/
+.idea
+.DS_Store
+dist
+node_modules
+guacamole-client/guacamole-client.js
+*.log
