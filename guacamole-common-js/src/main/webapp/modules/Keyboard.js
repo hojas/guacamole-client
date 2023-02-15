@@ -604,7 +604,7 @@ Guacamole.Keyboard = function Keyboard(element) {
         0xFFE9: true, // Left alt
         0xFFEA: true, // Right alt
         0xFFEB: true, // Left hyper
-        0xFFEC: true  // Right hyper
+        0xFFEC: true,  // Right hyper
         0xFF28: true, // Zenkaku
         0xFF29: true, // Hankaku
     };
