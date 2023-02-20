@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>guacamole-client demo</title>
+    <style>
+        #display {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body>
+<div id="display"></div>
+
+<script src="./dist/guacamole-client.umd.cjs"></script>
+<script>
+    const tunnelUrl = 'wss://websocket-tunnel'
+    const token = "your token"
+
+    const tunnel = new Guacamole.ChainedTunnel(new Guacamole.WebSocketTunnel(tunnelUrl))
+    const client = new Guacamole.Client(tunnel)
+    const connectArgs = `token=${token}`
+
+    const el = client.getDisplay().getElement()
+    document.getElementById('display').appendChild(el)
+    client.connect(connectArgs)
+</script>
+</body>
+</html>
